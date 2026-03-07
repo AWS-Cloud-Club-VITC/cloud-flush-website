@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ☁ Cloud-Flush
 
-## Getting Started
+> **Where Code Meets Cloud. Where Ideas Become Infrastructure.**
 
-First, run the development server:
+The official landing page for **Cloud-Flush** — the flagship 24-hour cloud hackathon by [AWS Cloud Club VIT Chennai](https://github.com/brovoski69/cloud-flush).
+
+---
+
+## 🚀 About
+
+Cloud-Flush is a high-octane, 24-hour sprint where developers, designers, and dreamers collide to build the future on the cloud. Whether you're deploying serverless architectures, training ML models on SageMaker, or crafting full-stack applications with AWS Amplify — this is your arena to innovate, break limits, and ship real products.
+
+| Stat | Value |
+|------|-------|
+| ⏱ Duration | 24 Hours |
+| 👥 Hackers Expected | 100+ |
+| 🏆 Prize Pool | ₹20,000 |
+
+---
+
+## 🛠 Tech Stack
+
+- **Framework** — [Next.js 15](https://nextjs.org) (App Router)
+- **Styling** — [Tailwind CSS](https://tailwindcss.com)
+- **Language** — TypeScript
+- **Animations** — CSS animations + Intersection Observer API
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── app/
+│   ├── globals.css       # Global styles & custom animations
+│   ├── layout.tsx        # Root layout with fonts
+│   └── page.tsx          # Home page (assembles all sections)
+└── components/
+    ├── Navbar.tsx         # Top navigation bar
+    ├── Hero.tsx           # Hero section with countdown timer
+    ├── About.tsx          # About the hackathon + stats
+    ├── Timeline.tsx       # Event schedule / timeline
+    ├── FAQ.tsx            # Frequently asked questions
+    ├── Sponsors.tsx       # Sponsors showcase
+    ├── Footer.tsx         # Site footer
+    ├── CountdownTimer.tsx # Live countdown to event
+    ├── GoldParticles.tsx  # Animated gold particle background
+    └── ScrollReveal.tsx   # Scroll-triggered reveal animations
+```
+
+---
+
+## 🏁 Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- npm / yarn / pnpm
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/brovoski69/cloud-flush.git
+cd cloud-flush
+
+# Install dependencies
+npm install
+```
+
+### Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Build for Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🌐 Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+This project is optimized for deployment on [Vercel](https://vercel.com):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Install Vercel CLI
+npm i -g vercel
 
-## Deploy on Vercel
+# Deploy
+vercel
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📜 License
+
+MIT © AWS Cloud Club VIT Chennai
