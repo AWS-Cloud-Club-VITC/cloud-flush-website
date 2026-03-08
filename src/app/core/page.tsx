@@ -153,6 +153,12 @@ export default function CoreLoginPage() {
             </>
           )}
         </div>
+
+        <p className="text-center mt-4 text-xs">
+          <a href="/admin" className="hover:underline" style={{ color: "#8b949e" }}>Admin Login</a>
+          {" · "}
+          <a href="/judge" className="hover:underline" style={{ color: "#8b949e" }}>Judge Login</a>
+        </p>
       </div>
     </div>
   );
