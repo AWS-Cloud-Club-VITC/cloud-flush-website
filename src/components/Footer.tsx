@@ -107,11 +107,30 @@ export default function Footer() {
             inView ? "opacity-100" : "opacity-0"
           }`}
         >
-          © 2026 AWS Cloud Club VIT Chennai. All rights reserved.{" "}
-          <a href="/core" className="text-white/15 hover:text-white/40 transition-colors">
-            Core
-          </a>
+          © 2026 AWS Cloud Club VIT Chennai. All rights reserved.
         </p>
+
+        {/* Staff portal links */}
+        <div
+          className={`flex items-center justify-center gap-3 mt-5 transition-all duration-700 delay-500 ${
+            inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
+        >
+          {[
+            { href: "/core",  label: "Core Login",  color: "#238636" },
+            { href: "/admin", label: "Admin Login", color: "#58a6ff" },
+            { href: "/judge", label: "Judge Login", color: "#9e6a03" },
+          ].map(({ href, label, color }) => (
+            <a
+              key={href}
+              href={href}
+              className="px-3 py-1 rounded-full text-[11px] font-mono tracking-wider border transition-all duration-200 hover:opacity-90"
+              style={{ borderColor: color, color, background: `${color}14` }}
+            >
+              {label}
+            </a>
+          ))}
+        </div>
       </div>
     </footer>
   );

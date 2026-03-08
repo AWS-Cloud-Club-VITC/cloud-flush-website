@@ -111,8 +111,8 @@ export default function Hero() {
               : "opacity-0 translate-y-8"
           }`}
         >
-          <a
-            href="#"
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("cf:open-modal", { detail: "register" }))}
             className="magnetic-hover inline-flex items-center gap-2 px-8 sm:px-12 py-3 sm:py-4 bg-gold text-bg-primary font-[family-name:var(--font-syne)] font-bold text-base sm:text-lg tracking-wider rounded-lg hover:bg-gold-light hover:shadow-[0_0_30px_rgba(212,160,23,0.5),0_0_60px_rgba(212,160,23,0.2)] transition-all duration-300 active:scale-95 relative overflow-hidden group"
           >
             <span className="relative z-10 flex items-center gap-2">
@@ -132,7 +132,7 @@ export default function Hero() {
               </svg>
             </span>
             <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-          </a>
+          </button>
         </div>
       </div>
 
