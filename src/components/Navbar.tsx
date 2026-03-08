@@ -16,6 +16,12 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    const handler = (e: Event) => setModalMode((e as CustomEvent<ModalMode>).detail);
+    window.addEventListener("cf:open-modal", handler);
+    return () => window.removeEventListener("cf:open-modal", handler);
+  }, []);
+
   return (
     <>
     <nav

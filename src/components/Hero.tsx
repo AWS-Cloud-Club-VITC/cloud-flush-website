@@ -12,15 +12,15 @@ function CloudSVG({ className, style }: { className?: string; style?: React.CSSP
       className={className}
       style={style}
     >
-      <circle cx="95"  cy="148" r="44" fill="white" />
-      <circle cx="145" cy="132" r="60" fill="white" />
-      <circle cx="212" cy="110" r="72" fill="white" />
-      <circle cx="255" cy="90"  r="58" fill="white" />
-      <circle cx="302" cy="102" r="78" fill="white" />
-      <circle cx="388" cy="118" r="66" fill="white" />
-      <circle cx="448" cy="138" r="50" fill="white" />
-      <rect   x="72"  y="140" width="400" height="60" fill="white" />
-      <ellipse cx="272" cy="200" rx="214" ry="18" fill="white" />
+      <circle cx="95"  cy="148" r="44" fill="#D4A017" />
+      <circle cx="145" cy="132" r="60" fill="#D4A017" />
+      <circle cx="212" cy="110" r="72" fill="#D4A017" />
+      <circle cx="255" cy="90"  r="58" fill="#D4A017" />
+      <circle cx="302" cy="102" r="78" fill="#D4A017" />
+      <circle cx="388" cy="118" r="66" fill="#D4A017" />
+      <circle cx="448" cy="138" r="50" fill="#D4A017" />
+      <rect   x="72"  y="140" width="400" height="60" fill="#D4A017" />
+      <ellipse cx="272" cy="200" rx="214" ry="18" fill="#D4A017" />
     </svg>
   );
 }
@@ -39,26 +39,90 @@ export default function Hero() {
       id="hero"
       className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden px-4 scan-line"
     >
+      {/* Dark base */}
+      <div className="absolute inset-0 bg-[#080808]" aria-hidden="true" />
+
+      {/* Aurora glow blobs */}
+      <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div
+          style={{
+            position: "absolute",
+            width: "90vw",
+            height: "90vw",
+            top: "-30%",
+            left: "-20%",
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(212,160,23,0.18) 0%, rgba(212,160,23,0.06) 40%, transparent 65%)",
+            animation: "aurora-drift-1 20s ease-in-out infinite",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            width: "80vw",
+            height: "80vw",
+            bottom: "-25%",
+            right: "-15%",
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(255,140,0,0.14) 0%, rgba(212,160,23,0.04) 40%, transparent 65%)",
+            animation: "aurora-drift-2 26s ease-in-out infinite 6s",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            width: "65vw",
+            height: "65vw",
+            top: "5%",
+            left: "18%",
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(240,192,64,0.10) 0%, transparent 60%)",
+            animation: "aurora-drift-3 32s ease-in-out infinite 12s",
+          }}
+        />
+      </div>
+
+      {/* Dot grid */}
       <div
         className="absolute inset-0"
         style={{
-          background:
-            "radial-gradient(ellipse at 50% 35%, rgba(28,16,0,0.82) 0%, rgba(8,8,8,0.94) 75%)",
+          backgroundImage:
+            "radial-gradient(circle, rgba(212,160,23,0.3) 1px, transparent 1px)",
+          backgroundSize: "42px 42px",
+          maskImage:
+            "radial-gradient(ellipse 80% 80% at 50% 50%, black 25%, transparent 70%)",
+          WebkitMaskImage:
+            "radial-gradient(ellipse 80% 80% at 50% 50%, black 25%, transparent 70%)",
+          opacity: 0.35,
         }}
         aria-hidden="true"
       />
 
+      {/* Vignette depth overlay */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 40%, rgba(14,8,0,0.25) 0%, rgba(8,8,8,0.95) 78%)",
+        }}
+        aria-hidden="true"
+      />
+
+      {/* Gold-tinted drifting clouds */}
       <CloudSVG
-        className="absolute top-[6%] left-0 w-100 sm:w-150 opacity-70"
-        style={{ animation: "cloud-drift 42s linear infinite", filter: "blur(3px)" } as React.CSSProperties}
+        className="absolute top-[6%] left-0 w-100 sm:w-150"
+        style={{ animation: "cloud-drift 42s linear infinite", filter: "blur(8px)", opacity: 0.10 } as React.CSSProperties}
       />
       <CloudSVG
-        className="absolute top-[40%] left-0 w-85 sm:w-130 opacity-55"
-        style={{ animation: "cloud-drift-reverse 56s linear infinite 10s", filter: "blur(4px)" } as React.CSSProperties}
+        className="absolute top-[40%] left-0 w-85 sm:w-130"
+        style={{ animation: "cloud-drift-reverse 56s linear infinite 10s", filter: "blur(10px)", opacity: 0.07 } as React.CSSProperties}
       />
       <CloudSVG
-        className="absolute bottom-[10%] left-0 w-75 sm:w-110 opacity-60"
-        style={{ animation: "cloud-drift 70s linear infinite 28s", filter: "blur(3px)" } as React.CSSProperties}
+        className="absolute bottom-[10%] left-0 w-75 sm:w-110"
+        style={{ animation: "cloud-drift 70s linear infinite 28s", filter: "blur(9px)", opacity: 0.09 } as React.CSSProperties}
       />
 
       <div className="relative z-10 text-center max-w-5xl mx-auto">
@@ -111,8 +175,8 @@ export default function Hero() {
               : "opacity-0 translate-y-8"
           }`}
         >
-          <a
-            href="#"
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("cf:open-modal", { detail: "register" }))}
             className="magnetic-hover inline-flex items-center gap-2 px-8 sm:px-12 py-3 sm:py-4 bg-gold text-bg-primary font-[family-name:var(--font-syne)] font-bold text-base sm:text-lg tracking-wider rounded-lg hover:bg-gold-light hover:shadow-[0_0_30px_rgba(212,160,23,0.5),0_0_60px_rgba(212,160,23,0.2)] transition-all duration-300 active:scale-95 relative overflow-hidden group"
           >
             <span className="relative z-10 flex items-center gap-2">
@@ -132,7 +196,7 @@ export default function Hero() {
               </svg>
             </span>
             <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-          </a>
+          </button>
         </div>
       </div>
 

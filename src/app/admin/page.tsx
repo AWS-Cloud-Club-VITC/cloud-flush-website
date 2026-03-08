@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 const ACCENT = "#58a6ff";
-const BTN_BG = "#238636";
+const BTN_BG = "#1f6feb";
 
-export default function CoreLoginPage() {
+export default function AdminLoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "forgot">("login");
   const [email, setEmail] = useState("");
@@ -25,12 +25,12 @@ export default function CoreLoginPage() {
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
-      const { data: coreCheck } = await supabase.from("core_users").select("id").maybeSingle();
-      if (!coreCheck) {
+      const { data: check } = await supabase.from("admin_users").select("id").maybeSingle();
+      if (!check) {
         await supabase.auth.signOut();
-        throw new Error("Access denied. You are not a core team member.");
+        throw new Error("Access denied. You are not an admin.");
       }
-      router.push("/core/dashboard");
+      router.push("/admin/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed.");
     } finally {
@@ -59,7 +59,10 @@ export default function CoreLoginPage() {
           <h1 className="text-white font-bold text-2xl tracking-widest" style={{ fontFamily: "monospace" }}>
             CLOUD-FLUSH
           </h1>
-          <p className="text-sm mt-1" style={{ color: "#8b949e" }}>Core Team Portal</p>
+          <p className="text-sm mt-1" style={{ color: "#8b949e" }}>Admin Portal</p>
+          <div className="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: "#58a6ff18", color: ACCENT, border: "1px solid #58a6ff40" }}>
+            ADMINISTRATOR
+          </div>
         </div>
 
         <div className="rounded-xl border p-6 space-y-4" style={{ background: "#161b22", borderColor: "#30363d" }}>
@@ -72,7 +75,7 @@ export default function CoreLoginPage() {
                   <input
                     type="email" required value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="core@example.com"
+                    placeholder="admin@example.com"
                     className="w-full px-3 py-2 rounded-md text-sm outline-none transition-colors"
                     style={inputStyle}
                     onFocus={(e) => (e.target.style.borderColor = ACCENT)}
@@ -134,7 +137,7 @@ export default function CoreLoginPage() {
                   <input
                     type="email" required value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="core@example.com"
+                    placeholder="admin@example.com"
                     className="w-full px-3 py-2 rounded-md text-sm outline-none transition-colors"
                     style={inputStyle}
                     onFocus={(e) => (e.target.style.borderColor = ACCENT)}
@@ -155,7 +158,7 @@ export default function CoreLoginPage() {
         </div>
 
         <p className="text-center mt-4 text-xs">
-          <a href="/admin" className="hover:underline" style={{ color: "#8b949e" }}>Admin Login</a>
+          <a href="/core" className="hover:underline" style={{ color: "#8b949e" }}>Core Login</a>
           {" · "}
           <a href="/judge" className="hover:underline" style={{ color: "#8b949e" }}>Judge Login</a>
         </p>

@@ -4,9 +4,14 @@
 drop table if exists public.attendance cascade;
 drop table if exists public.registrations cascade;
 drop table if exists public.sessions cascade;
+drop table if exists public.judge_users cascade;
+drop table if exists public.admin_users cascade;
 drop table if exists public.core_users cascade;
 drop table if exists public.team_members cascade;
 drop table if exists public.teams cascade;
+drop function if exists public.get_user_id_by_email(text) cascade;
+drop function if exists public.is_admin() cascade;
+drop function if exists public.is_judge() cascade;
 
 -- STEP 2: Teams
 create table public.teams (
@@ -32,6 +37,26 @@ create table public.team_members (
 create table public.core_users (
   id         uuid default gen_random_uuid() primary key,
   user_id    uuid references auth.users(id) on delete cascade not null unique,
+  email      text,
+  name       text,
+  created_at timestamp with time zone default timezone('utc', now()) not null
+);
+
+-- STEP 3.5: Admin users and Judge users
+create table public.admin_users (
+  id         uuid default gen_random_uuid() primary key,
+  user_id    uuid references auth.users(id) on delete cascade not null unique,
+  email      text,
+  name       text,
+  created_at timestamp with time zone default timezone('utc', now()) not null
+);
+-- NOTE: Bootstrap the first admin by inserting directly in the Supabase SQL editor:
+-- insert into public.admin_users (user_id, email, name) values ('<auth-user-uuid>', 'admin@email.com', 'Admin Name');
+
+create table public.judge_users (
+  id         uuid default gen_random_uuid() primary key,
+  user_id    uuid references auth.users(id) on delete cascade not null unique,
+  email      text,
   name       text,
   created_at timestamp with time zone default timezone('utc', now()) not null
 );
@@ -77,16 +102,36 @@ create table public.attendance (
 alter table public.teams         enable row level security;
 alter table public.team_members  enable row level security;
 alter table public.core_users    enable row level security;
+alter table public.admin_users   enable row level security;
+alter table public.judge_users   enable row level security;
 alter table public.sessions      enable row level security;
 alter table public.registrations enable row level security;
 alter table public.attendance    enable row level security;
 
--- STEP 7.5: Helper to get the current user's team_id without recursive RLS
--- security definer runs as the function owner (bypasses RLS internally)
+-- STEP 7.5: Security-definer helper functions (bypass RLS internally)
 create or replace function public.get_my_team_id()
   returns uuid language sql security definer stable
   set search_path = public as $$
     select team_id from team_members where user_id = auth.uid() limit 1;
+  $$;
+
+create or replace function public.is_admin()
+  returns boolean language sql security definer stable
+  set search_path = public as $$
+    select exists (select 1 from admin_users where user_id = auth.uid());
+  $$;
+
+create or replace function public.is_judge()
+  returns boolean language sql security definer stable
+  set search_path = public as $$
+    select exists (select 1 from judge_users where user_id = auth.uid());
+  $$;
+
+-- Look up a user's UUID by email (admins use this to add role members)
+create or replace function public.get_user_id_by_email(p_email text)
+  returns uuid language sql security definer stable
+  set search_path = public as $$
+    select id from auth.users where email = p_email limit 1;
   $$;
 
 -- STEP 8: Teams policies
@@ -96,6 +141,9 @@ create policy "Leader can update own team"
   on public.teams for update using (auth.uid() = leader_id);
 create policy "All authenticated can view teams"
   on public.teams for select to authenticated using (true);
+create policy "Admin and Judge can update any team"
+  on public.teams for update to authenticated
+  using (public.is_admin() or public.is_judge());
 
 -- STEP 9: Team members policies
 create policy "Leader can manage members"
@@ -106,10 +154,36 @@ create policy "Team members can view their team"
   on public.team_members for select using (
     team_id = public.get_my_team_id()
   );
+create policy "Admin can view all team members"
+  on public.team_members for select to authenticated
+  using (public.is_admin());
 
--- STEP 10: Core users policy
+-- STEP 10: Core users policies
 create policy "Core user verify own access"
   on public.core_users for select to authenticated using (user_id = auth.uid());
+create policy "Admin can view all core users"
+  on public.core_users for select to authenticated using (public.is_admin());
+create policy "Admin can manage core users"
+  on public.core_users for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+-- STEP 10.5: Admin users policies
+create policy "Admin self-access"
+  on public.admin_users for select to authenticated using (user_id = auth.uid());
+create policy "Admin can view all admins"
+  on public.admin_users for select to authenticated using (public.is_admin());
+create policy "Admin can manage admins"
+  on public.admin_users for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+-- STEP 10.6: Judge users policies
+create policy "Judge self-access"
+  on public.judge_users for select to authenticated using (user_id = auth.uid());
+create policy "Admin can view all judges"
+  on public.judge_users for select to authenticated using (public.is_admin());
+create policy "Admin can manage judges"
+  on public.judge_users for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
 
 -- STEP 11: Sessions policies
 create policy "Core users can read sessions"
@@ -132,3 +206,14 @@ create policy "Core users can insert attendance"
 create policy "Core users can view attendance"
   on public.attendance for select to authenticated
   using (exists (select 1 from public.core_users where user_id = auth.uid()));
+create policy "Admin can view all attendance"
+  on public.attendance for select to authenticated
+  using (public.is_admin());
+
+-- STEP 14: Admin broad read access
+create policy "Admin can view all registrations"
+  on public.registrations for select to authenticated
+  using (public.is_admin());
+create policy "Admin can view all sessions"
+  on public.sessions for select to authenticated
+  using (public.is_admin());
