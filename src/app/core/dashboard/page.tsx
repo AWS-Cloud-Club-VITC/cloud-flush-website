@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
@@ -65,6 +65,9 @@ function IconRefresh() {
 function IconMenu() {
   return <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
 }
+function IconPlus() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>; }
+function IconTrash() { return <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>; }
+function IconEdit() { return <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>; }
 
 // --- ScanResult Badge ---
 function ScanBadge({ result }: { result: ScanResult }) {
@@ -280,12 +283,12 @@ function AttendanceSection({ user, sessions }: { user: User; sessions: Session[]
 // ============================================================
 function DatabaseSection() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [preview, setPreview] = useState<Omit<Registration, "id">[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [parseError, setParseError] = useState("");
-  const [uploadError, setUploadError] = useState("");
-  const [uploadOk, setUploadOk] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [addingRow, setAddingRow] = useState(false);
+  const [newRow, setNewRow] = useState({ name: "", email: "", reg_no: "" });
+  const [addError, setAddError] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState({ name: "", email: "", reg_no: "" });
+  const [editError, setEditError] = useState("");
 
   const loadRegistrations = useCallback(async () => {
     const { data } = await supabase.from("registrations").select("*").order("name");
@@ -294,56 +297,33 @@ function DatabaseSection() {
 
   useEffect(() => { loadRegistrations(); }, [loadRegistrations]);
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setParseError(""); setUploadError(""); setUploadOk("");
-    try {
-      const XLSX = await import("xlsx");
-      const wb = XLSX.read(await file.arrayBuffer());
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
-      if (rows.length === 0) { setParseError("File is empty or couldn't be read."); return; }
-
-      // Flexible column matching
-      const get = (row: Record<string, unknown>, ...matches: string[]) => {
-        const key = Object.keys(row).find(k => matches.some(m => k.toLowerCase().includes(m)));
-        return key ? String(row[key]).trim() : "";
-      };
-
-      const parsed = rows
-        .map(row => ({
-          name: get(row, "name"),
-          reg_no: get(row, "reg", "roll", "id"),
-          email: get(row, "email", "mail"),
-          team_name: get(row, "team"),
-        }))
-        .filter(r => r.name && r.reg_no);
-
-      if (parsed.length === 0) {
-        const cols = Object.keys(rows[0]).join(", ");
-        setParseError(`No valid rows found. Detected columns: ${cols}. Need columns containing "name" and "reg" (or "roll").`);
-        return;
-      }
-      setPreview(parsed);
-    } catch (err) {
-      setParseError(err instanceof Error ? err.message : "Failed to read file.");
-    }
-    if (fileRef.current) fileRef.current.value = "";
+  async function handleAddRow() {
+    if (!newRow.name.trim() || !newRow.reg_no.trim()) { setAddError("Name and Reg No are required."); return; }
+    setAddError("");
+    const { error } = await supabase.from("registrations").insert({
+      name: newRow.name.trim(), email: newRow.email.trim(), reg_no: newRow.reg_no.trim(), team_name: "",
+    });
+    if (error) { setAddError(error.message); return; }
+    setNewRow({ name: "", email: "", reg_no: "" }); setAddingRow(false); loadRegistrations();
   }
 
-  async function handleUpload() {
-    if (!preview.length) return;
-    setUploading(true); setUploadError(""); setUploadOk("");
-    const { error } = await supabase.from("registrations").upsert(preview, { onConflict: "reg_no" });
-    if (error) {
-      setUploadError(error.message);
-    } else {
-      setUploadOk(`${preview.length} registrations saved.`);
-      setPreview([]);
-      loadRegistrations();
-    }
-    setUploading(false);
+  function startEdit(r: Registration) {
+    setEditId(r.id); setEditRow({ name: r.name, email: r.email, reg_no: r.reg_no }); setEditError("");
+  }
+
+  async function handleSaveEdit() {
+    if (!editRow.name.trim() || !editRow.reg_no.trim()) { setEditError("Name and Reg No are required."); return; }
+    const { error } = await supabase.from("registrations").update({
+      name: editRow.name.trim(), email: editRow.email.trim(), reg_no: editRow.reg_no.trim(),
+    }).eq("id", editId!);
+    if (error) { setEditError(error.message); return; }
+    setEditId(null); loadRegistrations();
+  }
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Delete "${name}"?`)) return;
+    await supabase.from("registrations").delete().eq("id", id);
+    loadRegistrations();
   }
 
   async function handleClearAll() {
@@ -352,134 +332,102 @@ function DatabaseSection() {
     loadRegistrations();
   }
 
+  const inCls = "px-2.5 py-1.5 rounded-md text-xs w-full focus:outline-none";
+  const inStyle: React.CSSProperties = { background: "#0d1117", color: "#e6edf3", border: "1px solid #30363d" };
+
   return (
-    <div className="space-y-4">
-      {/* Upload card */}
-      <div className="rounded-lg border" style={{ borderColor: "#30363d", background: "#161b22" }}>
-        <div className="px-4 py-3" style={{ borderBottom: "1px solid #30363d" }}>
-          <h2 className="font-semibold text-sm text-white">Upload Registrations</h2>
-          <p className="text-xs mt-0.5" style={{ color: "#8b949e" }}>
-            Excel or CSV with columns: <code className="text-white">Name</code>, <code className="text-white">Reg No</code>, <code className="text-white">Email</code>, <code className="text-white">Team</code>
-          </p>
+    <div className="rounded-lg border" style={{ borderColor: "#30363d" }}>
+      <div className="px-4 py-3 flex flex-wrap gap-2 items-center justify-between" style={{ borderBottom: "1px solid #30363d" }}>
+        <div>
+          <h2 className="font-semibold text-sm text-white">Registered Students</h2>
+          <p className="text-xs mt-0.5" style={{ color: "#8b949e" }}>{registrations.length} total</p>
         </div>
-        <div className="p-4 space-y-3">
-          <label className="flex flex-col items-center justify-center gap-2 cursor-pointer rounded-lg border-2 border-dashed py-8 transition-colors"
-            style={{ borderColor: "#30363d" }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = "#58a6ff")}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = "#30363d")}>
-            <div style={{ color: "#8b949e" }}><IconUpload /></div>
-            <span className="text-sm font-medium" style={{ color: "#8b949e" }}>Click to choose file</span>
-            <span className="text-xs" style={{ color: "#484f58" }}>.xlsx · .xls · .csv</span>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
-          </label>
-
-          {parseError && (
-            <div className="px-4 py-2.5 rounded-lg text-sm border" style={{ background: "rgba(218,54,51,0.1)", borderColor: "#da3633", color: "#f85149" }}>
-              ⚠ {parseError}
-            </div>
-          )}
-          {uploadOk && (
-            <div className="px-4 py-2.5 rounded-lg text-sm border" style={{ background: "rgba(35,134,54,0.1)", borderColor: "#238636", color: "#56d364" }}>
-              ✓ {uploadOk}
-            </div>
-          )}
-          {uploadError && (
-            <div className="px-4 py-2.5 rounded-lg text-sm border" style={{ background: "rgba(218,54,51,0.1)", borderColor: "#da3633", color: "#f85149" }}>
-              ✗ Upload failed: {uploadError}
-            </div>
-          )}
-
-          {preview.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <p className="text-sm" style={{ color: "#8b949e" }}>{preview.length} rows parsed — review before uploading</p>
-                <div className="flex gap-2">
-                  <button onClick={() => setPreview([])} className="px-3 py-1.5 rounded-md text-xs"
-                    style={{ background: "#21262d", color: "#8b949e" }}>Cancel</button>
-                  <button onClick={handleUpload} disabled={uploading}
-                    className="px-4 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-60"
-                    style={{ background: "#238636" }}>
-                    {uploading ? "Uploading…" : `Upload ${preview.length} rows`}
-                  </button>
-                </div>
-              </div>
-              <div className="overflow-x-auto rounded-lg border" style={{ maxHeight: "220px", borderColor: "#30363d" }}>
-                <table className="w-full text-xs" style={{ minWidth: "400px" }}>
-                  <thead style={{ position: "sticky", top: 0, background: "#161b22" }}>
-                    <tr style={{ borderBottom: "1px solid #30363d" }}>
-                      {["Name", "Reg No", "Email", "Team"].map(h => (
-                        <th key={h} className="text-left px-3 py-2 font-semibold uppercase tracking-wider" style={{ color: "#8b949e" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.slice(0, 15).map((r, i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid #21262d" }}>
-                        <td className="px-3 py-2 text-white">{r.name}</td>
-                        <td className="px-3 py-2 font-mono" style={{ color: "#58a6ff" }}>{r.reg_no}</td>
-                        <td className="px-3 py-2" style={{ color: "#8b949e" }}>{r.email}</td>
-                        <td className="px-3 py-2" style={{ color: "#8b949e" }}>{r.team_name}</td>
-                      </tr>
-                    ))}
-                    {preview.length > 15 && (
-                      <tr><td colSpan={4} className="px-3 py-2 text-center text-xs" style={{ color: "#484f58" }}>
-                        +{preview.length - 15} more rows
-                      </td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={loadRegistrations} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs"
+            style={{ background: "#21262d", color: "#8b949e" }}>
+            <IconRefresh /> Refresh
+          </button>
+          <button onClick={() => { setAddingRow(true); setNewRow({ name: "", email: "", reg_no: "" }); setAddError(""); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
+            style={{ background: "rgba(35,134,54,0.15)", color: "#56d364", border: "1px solid rgba(35,134,54,0.3)" }}>
+            <IconPlus /> Add Row
+          </button>
+          {registrations.length > 0 && (
+            <button onClick={handleClearAll} className="px-3 py-1.5 rounded-md text-xs font-medium"
+              style={{ background: "rgba(218,54,51,0.12)", color: "#f85149" }}>
+              Clear All
+            </button>
           )}
         </div>
       </div>
-
-      {/* Registrations list */}
-      <div className="rounded-lg border" style={{ borderColor: "#30363d" }}>
-        <div className="px-4 py-3 flex flex-wrap gap-2 items-center justify-between" style={{ borderBottom: "1px solid #30363d" }}>
-          <div>
-            <h2 className="font-semibold text-sm text-white">Registered Students</h2>
-            <p className="text-xs mt-0.5" style={{ color: "#8b949e" }}>{registrations.length} total</p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={loadRegistrations} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs"
-              style={{ background: "#21262d", color: "#8b949e" }}>
-              <IconRefresh /> Refresh
-            </button>
-            {registrations.length > 0 && (
-              <button onClick={handleClearAll} className="px-3 py-1.5 rounded-md text-xs font-medium"
-                style={{ background: "rgba(218,54,51,0.12)", color: "#f85149" }}>
-                Clear All
-              </button>
-            )}
-          </div>
-        </div>
-        {registrations.length === 0 ? (
-          <div className="py-12 text-center text-sm" style={{ color: "#484f58" }}>No registrations yet. Upload above.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ minWidth: "450px" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #30363d" }}>
-                  {["#", "Name", "Reg No", "Email", "Team"].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider"
-                      style={{ color: "#8b949e" }}>{h}</th>
-                  ))}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm" style={{ minWidth: "560px" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid #30363d" }}>
+              {["S.No", "Name", "Email ID", "Reg No", "Actions"].map(h => (
+                <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "#8b949e" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {addingRow && (
+              <Fragment>
+                <tr style={{ background: "rgba(35,134,54,0.05)", borderBottom: "1px solid #30363d" }}>
+                  <td className="px-4 py-2 text-xs" style={{ color: "#484f58" }}>—</td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} placeholder="Name *" value={newRow.name} onChange={e => setNewRow(p => ({ ...p, name: e.target.value }))} /></td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} placeholder="Email" value={newRow.email} onChange={e => setNewRow(p => ({ ...p, email: e.target.value }))} /></td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} placeholder="Reg No *" value={newRow.reg_no} onChange={e => setNewRow(p => ({ ...p, reg_no: e.target.value }))} /></td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <button onClick={handleAddRow} className="px-3 py-1 rounded text-xs font-semibold" style={{ background: "#238636", color: "#fff" }}>Save</button>
+                      <button onClick={() => { setAddingRow(false); setAddError(""); }} className="px-3 py-1 rounded text-xs" style={{ background: "#21262d", color: "#8b949e" }}>Cancel</button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {registrations.map((r, i) => (
-                  <tr key={r.id} style={{ borderBottom: i < registrations.length - 1 ? "1px solid #21262d" : "none" }}>
-                    <td className="px-4 py-2.5 text-xs" style={{ color: "#484f58" }}>{i + 1}</td>
-                    <td className="px-4 py-2.5 font-medium text-white">{r.name}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs" style={{ color: "#58a6ff" }}>{r.reg_no}</td>
-                    <td className="px-4 py-2.5" style={{ color: "#8b949e" }}>{r.email || "—"}</td>
-                    <td className="px-4 py-2.5" style={{ color: "#8b949e" }}>{r.team_name || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                {addError && (
+                  <tr><td colSpan={5} className="px-4 py-1.5 text-xs" style={{ color: "#f85149", background: "rgba(218,54,51,0.05)" }}>{addError}</td></tr>
+                )}
+              </Fragment>
+            )}
+            {registrations.map((r, i) => editId === r.id ? (
+              <Fragment key={r.id}>
+                <tr style={{ background: "rgba(88,166,255,0.05)", borderBottom: "1px solid #30363d" }}>
+                  <td className="px-4 py-2 text-xs" style={{ color: "#484f58" }}>{i + 1}</td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} value={editRow.name} onChange={e => setEditRow(p => ({ ...p, name: e.target.value }))} /></td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} value={editRow.email} onChange={e => setEditRow(p => ({ ...p, email: e.target.value }))} /></td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} value={editRow.reg_no} onChange={e => setEditRow(p => ({ ...p, reg_no: e.target.value }))} /></td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <button onClick={handleSaveEdit} className="px-3 py-1 rounded text-xs font-semibold" style={{ background: "#238636", color: "#fff" }}>Save</button>
+                      <button onClick={() => setEditId(null)} className="px-3 py-1 rounded text-xs" style={{ background: "#21262d", color: "#8b949e" }}>Cancel</button>
+                    </div>
+                  </td>
+                </tr>
+                {editError && (
+                  <tr><td colSpan={5} className="px-4 py-1.5 text-xs" style={{ color: "#f85149", background: "rgba(218,54,51,0.05)" }}>{editError}</td></tr>
+                )}
+              </Fragment>
+            ) : (
+              <tr key={r.id} style={{ borderBottom: i < registrations.length - 1 ? "1px solid #21262d" : "none" }}>
+                <td className="px-4 py-2.5 text-xs" style={{ color: "#484f58" }}>{i + 1}</td>
+                <td className="px-4 py-2.5 font-medium text-white">{r.name}</td>
+                <td className="px-4 py-2.5 text-xs" style={{ color: "#8b949e" }}>{r.email || "—"}</td>
+                <td className="px-4 py-2.5 font-mono text-xs" style={{ color: "#58a6ff" }}>{r.reg_no}</td>
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => startEdit(r)} className="flex items-center gap-1 px-2.5 py-1 rounded text-xs"
+                      style={{ background: "#21262d", color: "#8b949e" }}><IconEdit /> Edit</button>
+                    <button onClick={() => handleDelete(r.id, r.name)} className="p-1.5 rounded"
+                      style={{ background: "rgba(218,54,51,0.1)", color: "#f85149" }}><IconTrash /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {registrations.length === 0 && !addingRow && (
+          <div className="py-12 text-center text-sm" style={{ color: "#484f58" }}>No registrations yet. Click "Add Row" to add manually.</div>
         )}
       </div>
     </div>
