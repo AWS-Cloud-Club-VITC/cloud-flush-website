@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
-type AdminNav = "overview" | "teams" | "access" | "settings";
+type AdminNav = "overview" | "teams" | "users" | "access" | "settings";
 type AccessTab = "core" | "admin" | "judge";
 type TeamRow = { id: string; team_name: string; leader_id: string; points: number; is_vit_chennai: boolean; created_at: string };
 type RoleUser = { id: string; user_id: string; email: string | null; name: string | null; created_at: string };
 type Stats = { teams: number; members: number; attendance: number; registrations: number };
+type MemberRow = { id: string; name: string; email: string; reg_no: string; user_id: string | null; team_id: string; teams: { team_name: string; leader_id: string } | null };
+type ExportRow = { name: string; team_name: string; email: string; reg_no: string; role: string };
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 function IconGrid() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>; }
@@ -20,6 +22,8 @@ function IconLogout() { return <svg width="16" height="16" fill="none" viewBox="
 function IconTrash() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>; }
 function IconPlus() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>; }
 function IconMenu() { return <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>; }
+function IconTable() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>; }
+function IconDownload() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>; }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 const T = {
@@ -256,6 +260,134 @@ function AccessSection() {
   );
 }
 
+// ── Users / Export ───────────────────────────────────────────────────────────
+function UsersSection() {
+  const [rows, setRows] = useState<ExportRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase
+        .from("team_members")
+        .select("id, name, email, reg_no, user_id, team_id, teams(team_name, leader_id)")
+        .order("team_id");
+      if (!data) { setLoading(false); return; }
+      const members = data as unknown as MemberRow[];
+      const byTeam = new Map<string, { team_name: string; leader_id: string; members: MemberRow[] }>();
+      for (const m of members) {
+        const tname = m.teams?.team_name ?? "Unknown";
+        const lid = m.teams?.leader_id ?? "";
+        if (!byTeam.has(m.team_id)) byTeam.set(m.team_id, { team_name: tname, leader_id: lid, members: [] });
+        byTeam.get(m.team_id)!.members.push(m);
+      }
+      const exportRows: ExportRow[] = [];
+      for (const { team_name, leader_id, members: tm } of byTeam.values()) {
+        const sorted = [...tm].sort((a, b) => {
+          if (a.user_id === leader_id) return -1;
+          if (b.user_id === leader_id) return 1;
+          return 0;
+        });
+        for (const m of sorted) {
+          exportRows.push({ name: m.name, team_name, email: m.email, reg_no: m.reg_no, role: m.user_id === leader_id ? "Leader" : "Member" });
+        }
+      }
+      setRows(exportRows);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const filtered = search.trim()
+    ? rows.filter(r =>
+        r.name.toLowerCase().includes(search.toLowerCase()) ||
+        r.team_name.toLowerCase().includes(search.toLowerCase()) ||
+        r.email.toLowerCase().includes(search.toLowerCase()) ||
+        r.reg_no.toLowerCase().includes(search.toLowerCase())
+      )
+    : rows;
+
+  function exportCSV() {
+    const headers = ["Name", "Team Name", "Email", "Reg No", "Role"];
+    const lines = [
+      headers.join(","),
+      ...rows.map(r =>
+        [r.name, r.team_name, r.email, r.reg_no, r.role]
+          .map(v => `"${(v ?? "").replace(/"/g, '""')}"`)
+          .join(",")
+      ),
+    ];
+    const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "cloud-flush-participants.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-semibold" style={{ color: T.text }}>All Participants ({rows.length})</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="text" placeholder="Search name / team / email / reg…" value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="px-3 py-1.5 rounded-md text-sm outline-none"
+            style={{ ...inputStyle, width: 240 }}
+            onFocus={e => (e.target.style.borderColor = T.blue)}
+            onBlur={e => (e.target.style.borderColor = T.border)}
+          />
+          <button onClick={exportCSV}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white whitespace-nowrap"
+            style={{ background: T.green }}>
+            <IconDownload /> Export CSV
+          </button>
+        </div>
+      </div>
+      <p className="text-xs" style={{ color: T.muted }}>
+        Teams sorted by creation order — leader always listed first within each team. Export opens in Excel.
+      </p>
+      {loading ? (
+        <p className="text-sm animate-pulse py-8 text-center" style={{ color: T.muted }}>Loading…</p>
+      ) : (
+        <div className="rounded-lg border overflow-auto" style={{ borderColor: T.border }}>
+          <table className="w-full text-sm" style={{ minWidth: 620 }}>
+            <thead>
+              <tr style={{ background: T.card, borderBottom: `1px solid ${T.border}` }}>
+                {["#", "Name", "Team", "Email", "Reg No", "Role"].map(h => (
+                  <th key={h} className="px-3 py-2 text-left text-xs uppercase tracking-widest font-medium" style={{ color: T.muted }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r, i) => (
+                <tr key={i} style={{ borderBottom: `1px solid ${T.border}20`, background: i % 2 === 0 ? T.bg : "transparent" }}>
+                  <td className="px-3 py-2 text-xs" style={{ color: T.muted }}>{i + 1}</td>
+                  <td className="px-3 py-2 font-medium" style={{ color: T.text }}>{r.name}</td>
+                  <td className="px-3 py-2 text-sm" style={{ color: T.text }}>{r.team_name}</td>
+                  <td className="px-3 py-2 text-xs" style={{ color: T.muted }}>{r.email}</td>
+                  <td className="px-3 py-2 font-mono text-xs" style={{ color: T.text }}>{r.reg_no}</td>
+                  <td className="px-3 py-2">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                      style={r.role === "Leader"
+                        ? { background: `${T.green}20`, color: T.green, border: `1px solid ${T.green}40` }
+                        : { background: `${T.border}30`, color: T.muted }}>
+                      {r.role}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && <p className="px-4 py-8 text-center text-sm" style={{ color: T.muted }}>No participants yet.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 function SettingsSection({ user }: { user: User }) {
   const [pw, setPw] = useState(""); const [confirm, setConfirm] = useState("");
@@ -351,6 +483,7 @@ export default function AdminDashboard() {
   const navItems = [
     { id: "overview" as AdminNav, label: "Overview", icon: <IconGrid /> },
     { id: "teams" as AdminNav, label: "Teams", icon: <IconUsers /> },
+    { id: "users" as AdminNav, label: "Users", icon: <IconTable /> },
     { id: "access" as AdminNav, label: "Access", icon: <IconShield /> },
     { id: "settings" as AdminNav, label: "Settings", icon: <IconSettings /> },
   ];
@@ -358,6 +491,7 @@ export default function AdminDashboard() {
   const subtitles: Record<AdminNav, string> = {
     overview: "Stats & top teams",
     teams: "View and edit all teams",
+    users: "All participants — export to CSV / Excel",
     access: "Manage core / admin / judge users",
     settings: "Account & password",
   };
@@ -413,6 +547,7 @@ export default function AdminDashboard() {
         <div className="flex-1 p-5 sm:p-7 max-w-5xl w-full">
           {nav === "overview" && <Overview stats={stats} teams={teams} />}
           {nav === "teams" && <TeamsSection teams={teams} onRefresh={loadData} />}
+          {nav === "users" && <UsersSection />}
           {nav === "access" && <AccessSection />}
           {nav === "settings" && <SettingsSection user={user} />}
         </div>
