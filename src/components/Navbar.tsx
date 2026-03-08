@@ -2,9 +2,13 @@
 
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import AuthModal from "@/components/AuthModal";
+
+type ModalMode = "login" | "register" | null;
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -13,6 +17,7 @@ export default function Navbar() {
   }, []);
 
   return (
+    <>
     <nav
       className={`fixed top-0 left-0 right-0 z-40 transition-all duration-500 ${
         scrolled
@@ -45,14 +50,31 @@ export default function Navbar() {
             </div>
           </a>
 
-          <a
-            href="#"
-            className="gold-shimmer-btn relative px-6 py-2 sm:px-8 sm:py-2.5 rounded-full border border-gold/60 text-gold font-[family-name:var(--font-syne)] font-semibold text-sm tracking-wider hover:bg-gold/10 hover:border-gold transition-all duration-300 hover:shadow-[0_0_20px_rgba(212,160,23,0.2)]"
-          >
-            Login
-          </a>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setModalMode("register")}
+              className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-full text-sm font-semibold tracking-wider transition-all duration-300 text-black hover:opacity-90"
+              style={{ background: "#D4A017" }}
+            >
+              Register
+            </button>
+            <button
+              onClick={() => setModalMode("login")}
+              className="gold-shimmer-btn relative px-5 py-2 sm:px-6 sm:py-2.5 rounded-full border border-gold/60 text-gold font-[family-name:var(--font-syne)] font-semibold text-sm tracking-wider hover:bg-gold/10 hover:border-gold transition-all duration-300 hover:shadow-[0_0_20px_rgba(212,160,23,0.2)]"
+            >
+              Login
+            </button>
+          </div>
         </div>
       </div>
     </nav>
+
+    {modalMode && (
+      <AuthModal
+        initialMode={modalMode}
+        onClose={() => setModalMode(null)}
+      />
+    )}
+    </>
   );
 }
