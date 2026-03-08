@@ -25,7 +25,8 @@ export default function AdminLoginPage() {
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
-      const { data: check } = await supabase.from("admin_users").select("id").maybeSingle();
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: check } = await supabase.from("admin_users").select("id").eq("user_id", user!.id).maybeSingle();
       if (!check) {
         await supabase.auth.signOut();
         throw new Error("Access denied. You are not an admin.");

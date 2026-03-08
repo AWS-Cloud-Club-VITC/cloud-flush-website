@@ -626,7 +626,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace("/admin"); return; }
-      const { data: check } = await supabase.from("admin_users").select("id").maybeSingle();
+      const { data: check } = await supabase.from("admin_users").select("id").eq("user_id", user.id).maybeSingle();
       if (!check) { await supabase.auth.signOut(); router.replace("/admin"); return; }
       setUser(user); loadData();
     });
