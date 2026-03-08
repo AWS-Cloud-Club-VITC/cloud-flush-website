@@ -154,6 +154,9 @@ create policy "Team members can view their team"
   on public.team_members for select using (
     team_id = public.get_my_team_id()
   );
+create policy "Admin can view all team members"
+  on public.team_members for select to authenticated
+  using (public.is_admin());
 
 -- STEP 10: Core users policies
 create policy "Core user verify own access"
