@@ -5,17 +5,14 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
-type AdminNav = "overview" | "teams" | "users" | "access" | "scanner" | "database" | "settings";
+type AdminNav = "overview" | "teams" | "users" | "access" | "database" | "settings";
 type AccessTab = "core" | "admin" | "judge";
 type TeamRow = { id: string; team_name: string; leader_id: string; points: number; is_vit_chennai: boolean; created_at: string };
 type RoleUser = { id: string; user_id: string; email: string | null; name: string | null; created_at: string };
 type Stats = { teams: number; members: number; attendance: number; registrations: number };
 type MemberRow = { id: string; name: string; email: string; reg_no: string; user_id: string | null; team_id: string; teams: { team_name: string; leader_id: string } | null };
 type ExportRow = { name: string; team_name: string; email: string; reg_no: string; role: string };
-type ScanEntry = { name: string; reg_no: string; team_name: string; time: string; status: "ok" | "dup" | "err" };
-type DbTab = "teams" | "members" | "attendance" | "registrations";
-const DB_TABS: DbTab[] = ["teams", "members", "attendance", "registrations"];
-const PAGE_SIZE = 50;
+type Registration = { id: string; name: string; reg_no: string; email: string; team_name: string };
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 function IconGrid() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>; }
@@ -28,8 +25,9 @@ function IconPlus() { return <svg width="14" height="14" fill="none" viewBox="0 
 function IconMenu() { return <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>; }
 function IconTable() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>; }
 function IconDownload() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>; }
-function IconQR() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h.01M14 17h3M17 14v3M20 20h-3v-3"/></svg>; }
 function IconDatabase() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>; }
+function IconUpload() { return <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>; }
+function IconRefresh() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>; }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 const T = {
@@ -394,293 +392,202 @@ function UsersSection() {
   );
 }
 
-// ── QR Scanner ────────────────────────────────────────────────────────────────
-function ScannerSection({ user }: { user: User }) {
-  const [sessions, setSessions] = useState<{ id: number; name: string; is_enabled: boolean }[]>([]);
-  const [selectedSession, setSelectedSession] = useState<number | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [recentScans, setRecentScans] = useState<ScanEntry[]>([]);
-  const [feedback, setFeedback] = useState<{ type: ScanEntry["status"]; text: string } | null>(null);
-  const selectedSessionRef = useRef<number | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const scannerRef = useRef<any>(null);
-  const processingRef = useRef(false);
-  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+// ── Database / Upload Registrations ──────────────────────────────────────────
+function DatabaseSection() {
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [preview, setPreview] = useState<Omit<Registration, "id">[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [parseError, setParseError] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  const [uploadOk, setUploadOk] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { selectedSessionRef.current = selectedSession; }, [selectedSession]);
-
-  useEffect(() => {
-    supabase.from("sessions").select("id, name, is_enabled").order("slot_order").then(({ data }) => {
-      setSessions(data ?? []);
-    });
+  const loadRegistrations = useCallback(async () => {
+    const { data } = await supabase.from("registrations").select("*").order("name");
+    setRegistrations(data ?? []);
   }, []);
 
-  async function handleScanResult(decodedText: string) {
-    if (processingRef.current) return;
-    processingRef.current = true;
-    setTimeout(() => { processingRef.current = false; }, 2500);
-    let parsed: { name?: string; reg_no?: string; email?: string; team_name?: string };
-    try { parsed = JSON.parse(decodedText); } catch { processingRef.current = false; return; }
-    if (!parsed.reg_no) { processingRef.current = false; return; }
-    const { error } = await supabase.from("attendance").insert({
-      student_name: parsed.name ?? "",
-      reg_no: parsed.reg_no,
-      email: parsed.email ?? "",
-      team_name: parsed.team_name ?? "",
-      session_id: selectedSessionRef.current ?? null,
-      scanned_by: user.id,
-    });
-    const statusVal: ScanEntry["status"] = error ? (error.code === "23505" ? "dup" : "err") : "ok";
-    const entry: ScanEntry = {
-      name: parsed.name ?? "Unknown",
-      reg_no: parsed.reg_no,
-      team_name: parsed.team_name ?? "—",
-      time: new Date().toLocaleTimeString(),
-      status: statusVal,
-    };
-    const fbText = statusVal === "ok"
-      ? `✓ ${entry.name} (${entry.reg_no}) marked present`
-      : statusVal === "dup"
-      ? `⚠ Already scanned: ${entry.name} (${entry.reg_no})`
-      : `✕ ${error!.message}`;
-    setFeedback({ type: statusVal, text: fbText });
-    setRecentScans(prev => [entry, ...prev].slice(0, 30));
-    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
-    feedbackTimerRef.current = setTimeout(() => setFeedback(null), 4000);
-    processingRef.current = false;
+  useEffect(() => { loadRegistrations(); }, [loadRegistrations]);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setParseError(""); setUploadError(""); setUploadOk("");
+    try {
+      const XLSX = await import("xlsx");
+      const wb = XLSX.read(await file.arrayBuffer());
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
+      if (rows.length === 0) { setParseError("File is empty or couldn't be read."); return; }
+      const get = (row: Record<string, unknown>, ...matches: string[]) => {
+        const key = Object.keys(row).find(k => matches.some(m => k.toLowerCase().includes(m)));
+        return key ? String(row[key]).trim() : "";
+      };
+      const parsed = rows
+        .map(row => ({
+          name: get(row, "name"),
+          reg_no: get(row, "reg", "roll", "id"),
+          email: get(row, "email", "mail"),
+          team_name: get(row, "team"),
+        }))
+        .filter(r => r.name && r.reg_no);
+      if (parsed.length === 0) {
+        setParseError(`No valid rows. Detected columns: ${Object.keys(rows[0]).join(", ")}. Need "name" and "reg" (or "roll").`);
+        return;
+      }
+      setPreview(parsed);
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : "Failed to read file.");
+    }
+    if (fileRef.current) fileRef.current.value = "";
   }
 
-  useEffect(() => {
-    if (!scanning) {
-      if (scannerRef.current) { scannerRef.current.clear().catch(() => {}); scannerRef.current = null; }
-      return;
-    }
-    let mounted = true;
-    import("html5-qrcode").then(({ Html5QrcodeScanner }) => {
-      if (!mounted || scannerRef.current) return;
-      const scanner = new Html5QrcodeScanner(
-        "qr-reader-admin",
-        { fps: 10, qrbox: { width: 260, height: 260 }, rememberLastUsedCamera: true },
-        false
-      );
-      scanner.render(handleScanResult, () => {});
-      scannerRef.current = scanner;
-    });
-    return () => {
-      mounted = false;
-      if (scannerRef.current) { scannerRef.current.clear().catch(() => {}); scannerRef.current = null; }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanning]);
+  async function handleUpload() {
+    if (!preview.length) return;
+    setUploading(true); setUploadError(""); setUploadOk("");
+    const { error } = await supabase.from("registrations").upsert(preview, { onConflict: "reg_no" });
+    if (error) { setUploadError(error.message); }
+    else { setUploadOk(`${preview.length} registrations saved.`); setPreview([]); loadRegistrations(); }
+    setUploading(false);
+  }
 
-  const statusColor = (s: ScanEntry["status"]) => s === "ok" ? T.green : s === "dup" ? T.yellow : T.red;
-
-  return (
-    <div className="space-y-5 max-w-2xl">
-      <Card>
-        <p className="text-xs uppercase tracking-widest mb-3 font-semibold" style={{ color: T.muted }}>Session (optional)</p>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setSelectedSession(null)}
-            className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
-            style={selectedSession === null
-              ? { background: T.blue, color: "#0d1117" }
-              : { background: "transparent", color: T.muted, border: `1px solid ${T.border}` }}>
-            No Session
-          </button>
-          {sessions.map(s => (
-            <button key={s.id} onClick={() => setSelectedSession(s.id)}
-              className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
-              style={selectedSession === s.id
-                ? { background: T.blue, color: "#0d1117" }
-                : { background: "transparent", color: s.is_enabled ? T.text : T.muted, border: `1px solid ${T.border}` }}>
-              {s.name}{!s.is_enabled ? " (off)" : ""}
-            </button>
-          ))}
-        </div>
-      </Card>
-
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-semibold" style={{ color: T.text }}>Camera Scanner</p>
-          <button onClick={() => setScanning(v => !v)}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold"
-            style={{ background: scanning ? T.red : T.green, color: "#fff" }}>
-            {scanning ? "Stop Scanning" : "Start Scanning"}
-          </button>
-        </div>
-        {feedback && (
-          <div className="mb-4 px-4 py-2.5 rounded-lg text-sm font-medium"
-            style={{
-              background: `${statusColor(feedback.type)}18`,
-              color: statusColor(feedback.type),
-              border: `1px solid ${statusColor(feedback.type)}40`,
-            }}>
-            {feedback.text}
-          </div>
-        )}
-        <div id="qr-reader-admin" style={{ display: scanning ? "block" : "none" }} />
-        {!scanning && (
-          <div className="flex flex-col items-center justify-center py-14 rounded-lg gap-3"
-            style={{ background: T.bg, border: `2px dashed ${T.border}` }}>
-            <div style={{ color: T.muted }}><IconQR /></div>
-            <p className="text-sm" style={{ color: T.muted }}>Click "Start Scanning" to open camera</p>
-            {selectedSession !== null && (
-              <p className="text-xs" style={{ color: T.blue }}>
-                Session: {sessions.find(s => s.id === selectedSession)?.name}
-              </p>
-            )}
-          </div>
-        )}
-      </Card>
-
-      {recentScans.length > 0 && (
-        <Card>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs uppercase tracking-widest font-semibold" style={{ color: T.muted }}>
-              Recent Scans ({recentScans.length})
-            </p>
-            <button onClick={() => setRecentScans([])} className="text-xs hover:opacity-70" style={{ color: T.muted }}>Clear</button>
-          </div>
-          <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-            {recentScans.map((s, i) => (
-              <div key={i} className="flex items-center justify-between rounded-md px-3 py-2"
-                style={{ background: T.bg, border: `1px solid ${T.border}30` }}>
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase"
-                    style={{ background: `${statusColor(s.status)}18`, color: statusColor(s.status), border: `1px solid ${statusColor(s.status)}40` }}>
-                    {s.status}
-                  </span>
-                  <div>
-                    <span className="text-sm font-medium" style={{ color: T.text }}>{s.name}</span>
-                    <span className="ml-2 text-xs font-mono" style={{ color: T.muted }}>{s.reg_no}</span>
-                  </div>
-                </div>
-                <div className="text-right text-xs" style={{ color: T.muted }}>
-                  <div>{s.team_name}</div>
-                  <div>{s.time}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-// ── Database Browser ──────────────────────────────────────────────────────────
-function DatabaseSection() {
-  const [tab, setTab] = useState<DbTab>("teams");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [rows, setRows] = useState<Record<string, any>[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(false);
-
-  const load = useCallback(async (t: DbTab, p: number) => {
-    setLoading(true);
-    const from = p * PAGE_SIZE; const to = from + PAGE_SIZE - 1;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let data: any[] = []; let count = 0;
-    if (t === "teams") {
-      const r = await supabase.from("teams").select("id,team_name,points,is_vit_chennai,created_at", { count: "exact" }).order("points", { ascending: false }).range(from, to);
-      data = r.data ?? []; count = r.count ?? 0;
-    } else if (t === "members") {
-      const r = await supabase.from("team_members").select("id,name,email,reg_no,team_id,created_at", { count: "exact" }).order("created_at").range(from, to);
-      data = r.data ?? []; count = r.count ?? 0;
-    } else if (t === "attendance") {
-      const r = await supabase.from("attendance").select("id,student_name,reg_no,email,team_name,session_id,scanned_at", { count: "exact" }).order("scanned_at", { ascending: false }).range(from, to);
-      data = r.data ?? []; count = r.count ?? 0;
-    } else {
-      const r = await supabase.from("registrations").select("id,name,reg_no,email,team_name,uploaded_at", { count: "exact" }).order("name").range(from, to);
-      data = r.data ?? []; count = r.count ?? 0;
-    }
-    setRows(data); setTotal(count); setLoading(false);
-  }, []);
-
-  useEffect(() => { setPage(0); load(tab, 0); }, [tab, load]);
-
-  const cols = rows.length > 0 ? Object.keys(rows[0]) : [];
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-
-  function fmtCell(val: unknown): React.ReactNode {
-    if (val === null || val === undefined) return <span style={{ color: T.muted }}>—</span>;
-    if (typeof val === "boolean") return <span style={{ color: val ? T.green : T.muted }}>{val ? "Yes" : "No"}</span>;
-    const s = String(val);
-    if (s.length === 36 && s.includes("-")) return <span style={{ color: T.muted }}>{s.slice(0, 8)}…</span>;
-    if (s.length > 44) return s.slice(0, 44) + "…";
-    return s;
+  async function handleClearAll() {
+    if (!confirm(`Delete all ${registrations.length} registrations? This cannot be undone.`)) return;
+    await supabase.from("registrations").delete().neq("reg_no", "");
+    loadRegistrations();
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex flex-wrap gap-2">
-          {DB_TABS.map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className="px-4 py-1.5 rounded-full text-xs font-semibold capitalize transition-all"
-              style={tab === t ? { background: T.blue, color: "#0d1117" } : { background: "transparent", color: T.muted, border: `1px solid ${T.border}` }}>
-              {t}
-            </button>
-          ))}
+      {/* Upload card */}
+      <div className="rounded-lg border" style={{ borderColor: T.border, background: T.card }}>
+        <div className="px-4 py-3" style={{ borderBottom: `1px solid ${T.border}` }}>
+          <h2 className="font-semibold text-sm" style={{ color: T.text }}>Upload Registrations</h2>
+          <p className="text-xs mt-0.5" style={{ color: T.muted }}>
+            Excel or CSV with columns: <code style={{ color: T.text }}>Name</code>, <code style={{ color: T.text }}>Reg No</code>, <code style={{ color: T.text }}>Email</code>, <code style={{ color: T.text }}>Team</code>
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs" style={{ color: T.muted }}>{total} rows</span>
-          <button onClick={() => load(tab, page)}
-            className="px-3 py-1.5 rounded-md text-xs font-semibold"
-            style={{ background: T.card, color: T.text, border: `1px solid ${T.border}` }}>
-            ↻ Refresh
-          </button>
+        <div className="p-4 space-y-3">
+          <label className="flex flex-col items-center justify-center gap-2 cursor-pointer rounded-lg border-2 border-dashed py-8 transition-colors"
+            style={{ borderColor: T.border }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = T.blue)}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = T.border)}>
+            <div style={{ color: T.muted }}><IconUpload /></div>
+            <span className="text-sm font-medium" style={{ color: T.muted }}>Click to choose file</span>
+            <span className="text-xs" style={{ color: "#484f58" }}>.xlsx · .xls · .csv</span>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
+          </label>
+
+          {parseError && (
+            <div className="px-4 py-2.5 rounded-lg text-sm border" style={{ background: "rgba(218,54,51,0.1)", borderColor: T.red, color: "#f85149" }}>
+              ⚠ {parseError}
+            </div>
+          )}
+          {uploadOk && (
+            <div className="px-4 py-2.5 rounded-lg text-sm border" style={{ background: "rgba(35,134,54,0.1)", borderColor: T.green, color: "#56d364" }}>
+              ✓ {uploadOk}
+            </div>
+          )}
+          {uploadError && (
+            <div className="px-4 py-2.5 rounded-lg text-sm border" style={{ background: "rgba(218,54,51,0.1)", borderColor: T.red, color: "#f85149" }}>
+              ✗ Upload failed: {uploadError}
+            </div>
+          )}
+
+          {preview.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <p className="text-sm" style={{ color: T.muted }}>{preview.length} rows parsed — review before uploading</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setPreview([])} className="px-3 py-1.5 rounded-md text-xs"
+                    style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}>Cancel</button>
+                  <button onClick={handleUpload} disabled={uploading}
+                    className="px-4 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-60"
+                    style={{ background: T.green }}>
+                    {uploading ? "Uploading…" : `Upload ${preview.length} rows`}
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-x-auto rounded-lg border" style={{ maxHeight: "220px", borderColor: T.border }}>
+                <table className="w-full text-xs" style={{ minWidth: "400px" }}>
+                  <thead className="sticky top-0" style={{ background: T.card }}>
+                    <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+                      {["Name", "Reg No", "Email", "Team"].map(h => (
+                        <th key={h} className="text-left px-3 py-2 font-semibold uppercase tracking-wider" style={{ color: T.muted }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.slice(0, 15).map((r, i) => (
+                      <tr key={i} style={{ borderBottom: `1px solid ${T.border}30` }}>
+                        <td className="px-3 py-2" style={{ color: T.text }}>{r.name}</td>
+                        <td className="px-3 py-2 font-mono" style={{ color: T.blue }}>{r.reg_no}</td>
+                        <td className="px-3 py-2" style={{ color: T.muted }}>{r.email}</td>
+                        <td className="px-3 py-2" style={{ color: T.muted }}>{r.team_name}</td>
+                      </tr>
+                    ))}
+                    {preview.length > 15 && (
+                      <tr><td colSpan={4} className="px-3 py-2 text-center" style={{ color: T.muted }}>+{preview.length - 15} more rows</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-      {loading ? (
-        <p className="text-sm animate-pulse py-8 text-center" style={{ color: T.muted }}>Loading…</p>
-      ) : (
-        <>
-          <div className="rounded-lg border overflow-auto" style={{ borderColor: T.border, maxHeight: 520 }}>
-            <table className="w-full text-xs">
-              <thead className="sticky top-0" style={{ background: T.card }}>
+
+      {/* Registrations list */}
+      <div className="rounded-lg border" style={{ borderColor: T.border }}>
+        <div className="px-4 py-3 flex flex-wrap gap-2 items-center justify-between" style={{ borderBottom: `1px solid ${T.border}` }}>
+          <div>
+            <h2 className="font-semibold text-sm" style={{ color: T.text }}>Registered Students</h2>
+            <p className="text-xs mt-0.5" style={{ color: T.muted }}>{registrations.length} total</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={loadRegistrations} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs"
+              style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}>
+              <IconRefresh /> Refresh
+            </button>
+            {registrations.length > 0 && (
+              <button onClick={handleClearAll} className="px-3 py-1.5 rounded-md text-xs font-medium"
+                style={{ background: "rgba(218,54,51,0.12)", color: "#f85149", border: "1px solid rgba(218,54,51,0.3)" }}>
+                Clear All
+              </button>
+            )}
+          </div>
+        </div>
+        {registrations.length === 0 ? (
+          <div className="py-12 text-center text-sm" style={{ color: T.muted }}>No registrations yet. Upload above.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" style={{ minWidth: "450px" }}>
+              <thead>
                 <tr style={{ borderBottom: `1px solid ${T.border}` }}>
-                  {cols.map(c => (
-                    <th key={c} className="px-3 py-2 text-left uppercase tracking-widest font-medium whitespace-nowrap"
-                      style={{ color: T.muted }}>{c.replace(/_/g, " ")}</th>
+                  {["#", "Name", "Reg No", "Email", "Team"].map(h => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: T.muted }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: `1px solid ${T.border}20`, background: i % 2 === 0 ? T.bg : "transparent" }}>
-                    {cols.map(c => (
-                      <td key={c} className="px-3 py-2 font-mono whitespace-nowrap" style={{ color: T.text }}>
-                        {fmtCell(row[c])}
-                      </td>
-                    ))}
+                {registrations.map((r, i) => (
+                  <tr key={r.id} style={{ borderBottom: i < registrations.length - 1 ? `1px solid ${T.border}30` : "none" }}>
+                    <td className="px-4 py-2.5 text-xs" style={{ color: T.muted }}>{i + 1}</td>
+                    <td className="px-4 py-2.5 font-medium" style={{ color: T.text }}>{r.name}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs" style={{ color: T.blue }}>{r.reg_no}</td>
+                    <td className="px-4 py-2.5 text-xs" style={{ color: T.muted }}>{r.email || "—"}</td>
+                    <td className="px-4 py-2.5 text-xs" style={{ color: T.muted }}>{r.team_name || "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {rows.length === 0 && <p className="px-4 py-8 text-center text-sm" style={{ color: T.muted }}>No data.</p>}
           </div>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-3 justify-end">
-              <button disabled={page === 0} onClick={() => { const p = page - 1; setPage(p); load(tab, p); }}
-                className="px-3 py-1 rounded text-xs disabled:opacity-40 transition-opacity"
-                style={{ background: T.card, color: T.text, border: `1px solid ${T.border}` }}>
-                ← Prev
-              </button>
-              <span className="text-xs" style={{ color: T.muted }}>Page {page + 1} / {totalPages}</span>
-              <button disabled={page >= totalPages - 1} onClick={() => { const p = page + 1; setPage(p); load(tab, p); }}
-                className="px-3 py-1 rounded text-xs disabled:opacity-40 transition-opacity"
-                style={{ background: T.card, color: T.text, border: `1px solid ${T.border}` }}>
-                Next →
-              </button>
-            </div>
-          )}
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }
+
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 function SettingsSection({ user }: { user: User }) {
@@ -779,7 +686,6 @@ export default function AdminDashboard() {
     { id: "teams" as AdminNav, label: "Teams", icon: <IconUsers /> },
     { id: "users" as AdminNav, label: "Users", icon: <IconTable /> },
     { id: "access" as AdminNav, label: "Access", icon: <IconShield /> },
-    { id: "scanner" as AdminNav, label: "Scanner", icon: <IconQR /> },
     { id: "database" as AdminNav, label: "Database", icon: <IconDatabase /> },
     { id: "settings" as AdminNav, label: "Settings", icon: <IconSettings /> },
   ];
@@ -789,8 +695,7 @@ export default function AdminDashboard() {
     teams: "View and edit all teams",
     users: "All participants — export to CSV / Excel",
     access: "Manage core / admin / judge users",
-    scanner: "Scan participant QR codes for attendance",
-    database: "Browse raw table data",
+    database: "Upload and manage participant registrations",
     settings: "Account & password",
   };
 
@@ -847,7 +752,6 @@ export default function AdminDashboard() {
           {nav === "teams" && <TeamsSection teams={teams} onRefresh={loadData} />}
           {nav === "users" && <UsersSection />}
           {nav === "access" && <AccessSection />}
-          {nav === "scanner" && <ScannerSection user={user} />}
           {nav === "database" && <DatabaseSection />}
           {nav === "settings" && <SettingsSection user={user} />}
         </div>
