@@ -210,6 +210,10 @@ create policy "Admin can view all attendance"
   on public.attendance for select to authenticated
   using (public.is_admin());
 
+create policy "Admin can insert attendance"
+  on public.attendance for insert to authenticated
+  with check (public.is_admin());
+
 -- STEP 14: Admin broad read access
 create policy "Admin can view all registrations"
   on public.registrations for select to authenticated
