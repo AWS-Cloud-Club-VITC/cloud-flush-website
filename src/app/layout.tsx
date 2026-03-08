@@ -35,6 +35,10 @@ export const metadata: Metadata = {
   description:
     "The ultimate cloud hackathon by AWS Cloud Club VIT Chennai. 24 hours. Infinite possibilities. One leaderboard.",
   keywords: ["hackathon", "AWS", "cloud", "VIT Chennai", "Cloud-Flush"],
+  icons: {
+    icon: "/awscc_logo.webp",
+    apple: "/awscc_logo.webp",
+  },
   openGraph: {
     title: "Cloud-Flush | AWS Cloud Club VIT Chennai",
     description:
