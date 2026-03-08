@@ -162,6 +162,9 @@ export default function JudgeLoginPage() {
           {" · "}
           <a href="/admin" className="hover:underline" style={{ color: "#8b949e" }}>Admin Login</a>
         </p>
+        <p className="text-center mt-2 text-xs">
+          <a href="/" className="hover:underline" style={{ color: "#8b949e" }}>← Back to website</a>
+        </p>
       </div>
     </div>
   );
