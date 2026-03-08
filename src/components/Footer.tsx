@@ -107,7 +107,10 @@ export default function Footer() {
             inView ? "opacity-100" : "opacity-0"
           }`}
         >
-          © 2026 AWS Cloud Club VIT Chennai. All rights reserved.
+          © 2026 AWS Cloud Club VIT Chennai. All rights reserved.{" "}
+          <a href="/core" className="text-white/15 hover:text-white/40 transition-colors">
+            Core
+          </a>
         </p>
       </div>
     </footer>
