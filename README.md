@@ -8,7 +8,7 @@ Official hackathon website for Cloud-Flush by AWS Cloud Club VIT Chennai.
 
 ```bash
 # Clone the repo
-git clone https://github.com/brovoski69/cloud-flush.git
+git clone https://github.com/AWS-Cloud-Club-VITC/cloud-flush-website.git
 cd cloud-flush
 
 # Install dependencies
