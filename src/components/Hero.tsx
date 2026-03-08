@@ -2,28 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import CountdownTimer from "./CountdownTimer";
-import GoldParticles from "./GoldParticles";
 
 function CloudSVG({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg
-      viewBox="0 0 200 120"
+      viewBox="0 0 500 200"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       style={style}
     >
-      <path
-        d="M160 90H45C25.67 90 10 74.33 10 55s15.67-35 35-35c1.23 0 2.44.07 3.64.2C55.8 8.34 68.57 0 83 0c18.78 0 34.44 13.68 37.42 31.64A30.04 30.04 0 01130 28c16.57 0 30 13.43 30 30 0 .34-.01.67-.02 1A24.99 24.99 0 01185 83c0 3.87-3.13 7-7 7h-18z"
-        fill="url(#cloud-grad)"
-        opacity="0.06"
-      />
-      <defs>
-        <linearGradient id="cloud-grad" x1="10" y1="0" x2="185" y2="90">
-          <stop stopColor="#D4A017" />
-          <stop offset="1" stopColor="#FFD700" stopOpacity="0.3" />
-        </linearGradient>
-      </defs>
+      <circle cx="95"  cy="148" r="44" fill="white" />
+      <circle cx="145" cy="132" r="60" fill="white" />
+      <circle cx="212" cy="110" r="72" fill="white" />
+      <circle cx="255" cy="90"  r="58" fill="white" />
+      <circle cx="302" cy="102" r="78" fill="white" />
+      <circle cx="388" cy="118" r="66" fill="white" />
+      <circle cx="448" cy="138" r="50" fill="white" />
+      <rect   x="72"  y="140" width="400" height="60" fill="white" />
+      <ellipse cx="272" cy="200" rx="214" ry="18" fill="white" />
     </svg>
   );
 }
@@ -46,22 +43,27 @@ export default function Hero() {
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse at 50% 30%, #1C1600 0%, #0A0A0A 60%, #0A0A0A 100%)",
-          backgroundSize: "200% 200%",
-          animation: "gradient-shift 8s ease infinite",
+            "radial-gradient(ellipse at 50% 35%, rgba(28,16,0,0.82) 0%, rgba(8,8,8,0.94) 75%)",
         }}
         aria-hidden="true"
       />
 
-      <GoldParticles />
-
-      <CloudSVG className="absolute top-[10%] left-[-5%] w-[300px] sm:w-[500px] opacity-30" style={{ animation: "cloud-drift 25s ease-in-out infinite" } as React.CSSProperties} />
-      <CloudSVG className="absolute bottom-[15%] right-[-5%] w-[250px] sm:w-[400px] opacity-20" style={{ animation: "cloud-drift-reverse 30s ease-in-out infinite" } as React.CSSProperties} />
-      <CloudSVG className="absolute top-[50%] left-[20%] w-[200px] opacity-10" style={{ animation: "cloud-drift 35s ease-in-out infinite 5s" } as React.CSSProperties} />
+      <CloudSVG
+        className="absolute top-[6%] left-0 w-100 sm:w-150 opacity-70"
+        style={{ animation: "cloud-drift 42s linear infinite", filter: "blur(3px)" } as React.CSSProperties}
+      />
+      <CloudSVG
+        className="absolute top-[40%] left-0 w-85 sm:w-130 opacity-55"
+        style={{ animation: "cloud-drift-reverse 56s linear infinite 10s", filter: "blur(4px)" } as React.CSSProperties}
+      />
+      <CloudSVG
+        className="absolute bottom-[10%] left-0 w-75 sm:w-110 opacity-60"
+        style={{ animation: "cloud-drift 70s linear infinite 28s", filter: "blur(3px)" } as React.CSSProperties}
+      />
 
       <div className="relative z-10 text-center max-w-5xl mx-auto">
         <h1
-          className={`font-[family-name:var(--font-cinzel)] text-[2.75rem] sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-wider gold-text-gradient hero-title-glow cursor-default whitespace-nowrap text-center transition-all duration-1000 ${
+          className={`font-[family-name:var(--font-space-grotesk)] text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-bold tracking-tight leading-none cf-title-gradient hero-title-glow cursor-default whitespace-nowrap text-center transition-all duration-1000 ${
             visible
               ? "opacity-100 translate-y-0"
               : "opacity-0 translate-y-8"

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Cinzel, Syne, JetBrains_Mono } from "next/font/google";
+import { Cinzel, Syne, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
 const cinzel = Cinzel({
@@ -20,6 +20,13 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
+  display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  weight: ["700"],
   display: "swap",
 });
 
@@ -44,7 +51,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body
-        className={`${cinzel.variable} ${syne.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${cinzel.variable} ${syne.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable} antialiased`}
       >
         <div className="noise-overlay" aria-hidden="true" />
         {children}

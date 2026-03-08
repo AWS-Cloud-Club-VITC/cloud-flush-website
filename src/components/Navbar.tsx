@@ -25,7 +25,7 @@ export default function Navbar() {
           <a href="#" className="flex items-center gap-3 group">
             <div className="relative w-11 h-11 sm:w-14 sm:h-14 rounded-full overflow-visible">
               <div className="orbit-ring" />
-              <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-gold group-hover:border-gold-light transition-all duration-300 shadow-[0_0_20px_rgba(212,160,23,0.35)] group-hover:shadow-[0_0_30px_rgba(212,160,23,0.55)]">
+                <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-gold group-hover:border-gold-light transition-all duration-300 shadow-[0_0_20px_rgba(212,160,23,0.35)] group-hover:shadow-[0_0_30px_rgba(212,160,23,0.55)]">
                 <Image
                   src="/awscc_logo.webp"
                   alt="AWS Cloud Club VIT Chennai"

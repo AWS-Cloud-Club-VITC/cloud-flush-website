@@ -1,77 +1,78 @@
 "use client";
 
 export default function GoldParticles() {
-  const particles = Array.from({ length: 40 }, (_, i) => {
+  // Small twinkling background stars
+  const stars = Array.from({ length: 130 }, (_, i) => {
     const seed = i * 137.508;
-    const x = ((seed * 7.3) % 100).toFixed(1);
-    const y = ((seed * 3.7) % 100).toFixed(1);
-    const size = (1 + (i % 3)).toFixed(0);
-    const delay = ((i * 0.7) % 20).toFixed(1);
-    const duration = (15 + (i % 10)).toFixed(0);
-    const opacity = (0.1 + (i % 5) * 0.08).toFixed(2);
+    const x = ((seed * 7.3) % 100).toFixed(2);
+    const y = ((seed * 3.7) % 100).toFixed(2);
+    const size = (0.5 + (i % 5) * 0.35).toFixed(1);
+    const delay = ((i * 0.317) % 5).toFixed(2);
+    const duration = (1.5 + (i % 5) * 0.7).toFixed(1);
+    const isWarm = i % 7 === 0;
 
     return (
       <div
-        key={`p-${i}`}
+        key={`star-${i}`}
         className="absolute rounded-full"
         style={{
           left: `${x}%`,
           top: `${y}%`,
           width: `${size}px`,
           height: `${size}px`,
-          backgroundColor: "var(--gold-glow)",
-          opacity: Number(opacity),
-          animation: `particle-float ${duration}s linear ${delay}s infinite`,
-          boxShadow: `0 0 ${Number(size) * 4}px rgba(255, 215, 0, 0.3)`,
+          backgroundColor: isWarm ? "#FFF5C8" : "#FFFFFF",
+          opacity: 0.75,
+          animation: `twinkle ${duration}s ease-in-out ${delay}s infinite`,
+          boxShadow:
+            Number(size) >= 1.5
+              ? `0 0 ${Number(size) * 2}px rgba(255,255,255,0.7)`
+              : "none",
         }}
         aria-hidden="true"
       />
     );
   });
 
-  const orbits = [
-    { radius: 180, size: 4, duration: 25, opacity: 0.15 },
-    { radius: 280, size: 3, duration: 35, opacity: 0.1 },
-    { radius: 400, size: 5, duration: 45, opacity: 0.08 },
-  ];
+  // Bright 4-pointed sparkle stars
+  const sparkles = Array.from({ length: 14 }, (_, i) => {
+    const seed = (i + 200) * 137.508;
+    const x = ((seed * 7.3) % 88 + 6).toFixed(2);
+    const y = ((seed * 3.7) % 83 + 6).toFixed(2);
+    const delay = ((i * 0.73) % 4).toFixed(2);
+    const size = 7 + (i % 5);
+
+    return (
+      <div
+        key={`sparkle-${i}`}
+        className="absolute"
+        style={{
+          left: `${x}%`,
+          top: `${y}%`,
+          width: `${size}px`,
+          height: `${size}px`,
+          animation: `twinkle-fast ${2.5 + (i % 3) * 0.8}s ease-in-out ${delay}s infinite`,
+        }}
+        aria-hidden="true"
+      >
+        <svg viewBox="0 0 20 20" fill="white" style={{ width: "100%", height: "100%" }}>
+          <path d="M10 0 L11.8 8.2 L20 10 L11.8 11.8 L10 20 L8.2 11.8 L0 10 L8.2 8.2 Z" opacity="0.9" />
+        </svg>
+      </div>
+    );
+  });
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {particles}
+    <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{zIndex: 0}}>
+      {stars}
+      {sparkles}
 
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-        {orbits.map((orbit, i) => (
-          <div
-            key={`orbit-${i}`}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/5"
-            style={{
-              width: `${orbit.radius * 2}px`,
-              height: `${orbit.radius * 2}px`,
-              animation: `rotate-slow ${orbit.duration}s linear infinite${i % 2 ? " reverse" : ""}`,
-            }}
-            aria-hidden="true"
-          >
-            <div
-              className="absolute rounded-full bg-gold"
-              style={{
-                width: `${orbit.size}px`,
-                height: `${orbit.size}px`,
-                top: `-${orbit.size / 2}px`,
-                left: "50%",
-                marginLeft: `-${orbit.size / 2}px`,
-                opacity: orbit.opacity * 3,
-                boxShadow: `0 0 ${orbit.size * 3}px rgba(255, 215, 0, 0.4)`,
-              }}
-            />
-          </div>
-        ))}
-      </div>
-
+      {/* Subtle gold nebula glow in hero area */}
       <div
-        className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-[0.03]"
+        className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-175 h-87.5 rounded-full opacity-[0.05]"
         style={{
-          background: "radial-gradient(circle, var(--gold-glow) 0%, transparent 70%)",
-          animation: "pulse-glow 6s ease-in-out infinite",
+          background:
+            "radial-gradient(ellipse, #D4A017 0%, #FFD700 30%, transparent 70%)",
+          animation: "pulse-glow 8s ease-in-out infinite",
         }}
         aria-hidden="true"
       />

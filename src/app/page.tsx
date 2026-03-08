@@ -5,10 +5,13 @@ import Timeline from "@/components/Timeline";
 import FAQ from "@/components/FAQ";
 import Sponsors from "@/components/Sponsors";
 import Footer from "@/components/Footer";
+import GoldParticles from "@/components/GoldParticles";
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen bg-bg-primary">
+    <>
+      <GoldParticles />
+      <main className="relative z-1 min-h-screen">
       <Navbar />
       <Hero />
       <About />
@@ -16,6 +19,7 @@ export default function Home() {
       <FAQ />
       <Sponsors />
       <Footer />
-    </main>
+      </main>
+    </>
   );
 }
