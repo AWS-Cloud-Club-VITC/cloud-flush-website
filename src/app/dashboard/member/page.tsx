@@ -204,18 +204,10 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return <div className="flex items-center justify-between py-2 border-b border-white/5"><span className="text-[10px] text-white/40 uppercase tracking-widest">{label}</span><span className="text-sm text-white font-medium">{value}</span></div>;
 }
 function AttendanceSection({ user, myInfo, team }: { user: User; myInfo: TeamMember | null; team: Team | null }) {
-  const [, setTick] = useState(0);
-  useEffect(() => { const t = setInterval(() => setTick(n => n + 1), 1000); return () => clearInterval(t); }, []);
-  const now = Date.now(); const slot = Math.floor(now / 30000); const left = Math.ceil(((slot + 1) * 30000 - now) / 1000);
-  // Members are created via ephemeral signUp with no metadata — name/reg_no only in team_members row
-  const qrData = JSON.stringify({ name: myInfo?.name ?? "", reg_no: myInfo?.reg_no ?? "", email: user.email ?? "", team_name: team?.team_name ?? "", t: slot });
+  const qrData = JSON.stringify({ name: myInfo?.name ?? "", reg_no: myInfo?.reg_no ?? "", email: user.email ?? "", team_name: team?.team_name ?? "" });
   return (
     <div className="flex flex-col items-center gap-6 rounded-2xl border border-white/10 p-8" style={{ background: "rgba(255,255,255,0.03)" }}>
       <div className="p-4 rounded-2xl" style={{ background: "#ffffff" }}><QRCode value={qrData} size={220} bgColor="#ffffff" fgColor="#080808" /></div>
-      <div className="w-full max-w-sm space-y-1.5">
-        <div className="flex justify-between text-xs"><span className="text-white/40">QR refreshes in</span><span className="font-mono font-semibold text-yellow-400">{left}s</span></div>
-        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}><div className="h-full rounded-full" style={{ width: `${((30 - left) / 30) * 100}%`, background: "#D4A017", transition: "width 1s linear" }} /></div>
-      </div>
       <div className="w-full max-w-sm"><InfoRow label="Name" value={myInfo?.name ?? "—"} /><InfoRow label="Reg No" value={myInfo?.reg_no ?? "—"} /><InfoRow label="Email" value={user.email ?? "—"} /><InfoRow label="Team" value={team?.team_name ?? "—"} /></div>
       <p className="text-xs text-white/20 text-center">Show this QR to a core team member to mark your attendance.</p>
     </div>

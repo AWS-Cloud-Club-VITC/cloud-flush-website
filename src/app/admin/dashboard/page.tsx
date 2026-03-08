@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
-type AdminNav = "overview" | "teams" | "users" | "access" | "settings";
+type AdminNav = "overview" | "teams" | "users" | "access" | "database" | "settings";
 type AccessTab = "core" | "admin" | "judge";
 type TeamRow = { id: string; team_name: string; leader_id: string; points: number; is_vit_chennai: boolean; created_at: string };
 type RoleUser = { id: string; user_id: string; email: string | null; name: string | null; created_at: string };
 type Stats = { teams: number; members: number; attendance: number; registrations: number };
 type MemberRow = { id: string; name: string; email: string; reg_no: string; user_id: string | null; team_id: string; teams: { team_name: string; leader_id: string } | null };
 type ExportRow = { name: string; team_name: string; email: string; reg_no: string; role: string };
+type Registration = { id: string; name: string; reg_no: string; email: string; team_name: string };
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 function IconGrid() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>; }
@@ -24,6 +25,10 @@ function IconPlus() { return <svg width="14" height="14" fill="none" viewBox="0 
 function IconMenu() { return <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>; }
 function IconTable() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>; }
 function IconDownload() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>; }
+function IconDatabase() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>; }
+function IconUpload() { return <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>; }
+function IconRefresh() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>; }
+function IconEdit() { return <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>; }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 const T = {
@@ -388,6 +393,161 @@ function UsersSection() {
   );
 }
 
+// ── Database / Upload Registrations ──────────────────────────────────────────
+function DatabaseSection() {
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [addingRow, setAddingRow] = useState(false);
+  const [newRow, setNewRow] = useState({ name: "", email: "", reg_no: "" });
+  const [addError, setAddError] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState({ name: "", email: "", reg_no: "" });
+  const [editError, setEditError] = useState("");
+
+  const loadRegistrations = useCallback(async () => {
+    const { data } = await supabase.from("registrations").select("*").order("name");
+    setRegistrations(data ?? []);
+  }, []);
+
+  useEffect(() => { loadRegistrations(); }, [loadRegistrations]);
+
+  async function handleAddRow() {
+    if (!newRow.name.trim() || !newRow.reg_no.trim()) { setAddError("Name and Reg No are required."); return; }
+    setAddError("");
+    const { error } = await supabase.from("registrations").insert({
+      name: newRow.name.trim(), email: newRow.email.trim(), reg_no: newRow.reg_no.trim(), team_name: "",
+    });
+    if (error) { setAddError(error.message); return; }
+    setNewRow({ name: "", email: "", reg_no: "" }); setAddingRow(false); loadRegistrations();
+  }
+
+  function startEdit(r: Registration) {
+    setEditId(r.id); setEditRow({ name: r.name, email: r.email, reg_no: r.reg_no }); setEditError("");
+  }
+
+  async function handleSaveEdit() {
+    if (!editRow.name.trim() || !editRow.reg_no.trim()) { setEditError("Name and Reg No are required."); return; }
+    const { error } = await supabase.from("registrations").update({
+      name: editRow.name.trim(), email: editRow.email.trim(), reg_no: editRow.reg_no.trim(),
+    }).eq("id", editId!);
+    if (error) { setEditError(error.message); return; }
+    setEditId(null); loadRegistrations();
+  }
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Delete "${name}"?`)) return;
+    await supabase.from("registrations").delete().eq("id", id);
+    loadRegistrations();
+  }
+
+  async function handleClearAll() {
+    if (!confirm(`Delete all ${registrations.length} registrations? This cannot be undone.`)) return;
+    await supabase.from("registrations").delete().neq("reg_no", "");
+    loadRegistrations();
+  }
+
+  const inCls = "px-2.5 py-1.5 rounded-md text-xs w-full focus:outline-none";
+  const inStyle: React.CSSProperties = { background: T.bg, color: T.text, border: `1px solid ${T.border}` };
+
+  return (
+    <div className="rounded-lg border" style={{ borderColor: T.border }}>
+      <div className="px-4 py-3 flex flex-wrap gap-2 items-center justify-between" style={{ borderBottom: `1px solid ${T.border}` }}>
+        <div>
+          <h2 className="font-semibold text-sm" style={{ color: T.text }}>Registered Students</h2>
+          <p className="text-xs mt-0.5" style={{ color: T.muted }}>{registrations.length} total</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={loadRegistrations} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs"
+            style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}>
+            <IconRefresh /> Refresh
+          </button>
+          <button onClick={() => { setAddingRow(true); setNewRow({ name: "", email: "", reg_no: "" }); setAddError(""); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
+            style={{ background: "rgba(35,134,54,0.15)", color: T.green, border: `1px solid rgba(35,134,54,0.3)` }}>
+            <IconPlus /> Add Row
+          </button>
+          {registrations.length > 0 && (
+            <button onClick={handleClearAll} className="px-3 py-1.5 rounded-md text-xs font-medium"
+              style={{ background: "rgba(218,54,51,0.12)", color: "#f85149", border: "1px solid rgba(218,54,51,0.3)" }}>
+              Clear All
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm" style={{ minWidth: "560px" }}>
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+              {["S.No", "Name", "Email ID", "Reg No", "Actions"].map(h => (
+                <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: T.muted }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {addingRow && (
+              <Fragment>
+                <tr style={{ background: "rgba(35,134,54,0.05)", borderBottom: `1px solid ${T.border}` }}>
+                  <td className="px-4 py-2 text-xs" style={{ color: T.muted }}>—</td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} placeholder="Name *" value={newRow.name} onChange={e => setNewRow(p => ({ ...p, name: e.target.value }))} /></td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} placeholder="Email" value={newRow.email} onChange={e => setNewRow(p => ({ ...p, email: e.target.value }))} /></td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} placeholder="Reg No *" value={newRow.reg_no} onChange={e => setNewRow(p => ({ ...p, reg_no: e.target.value }))} /></td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <button onClick={handleAddRow} className="px-3 py-1 rounded text-xs font-semibold" style={{ background: T.green, color: "#fff" }}>Save</button>
+                      <button onClick={() => { setAddingRow(false); setAddError(""); }} className="px-3 py-1 rounded text-xs" style={{ background: T.card, color: T.muted, border: `1px solid ${T.border}` }}>Cancel</button>
+                    </div>
+                  </td>
+                </tr>
+                {addError && (
+                  <tr><td colSpan={5} className="px-4 py-1.5 text-xs" style={{ color: "#f85149", background: "rgba(218,54,51,0.05)" }}>{addError}</td></tr>
+                )}
+              </Fragment>
+            )}
+            {registrations.map((r, i) => editId === r.id ? (
+              <Fragment key={r.id}>
+                <tr style={{ background: `rgba(88,166,255,0.05)`, borderBottom: `1px solid ${T.border}` }}>
+                  <td className="px-4 py-2 text-xs" style={{ color: T.muted }}>{i + 1}</td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} value={editRow.name} onChange={e => setEditRow(p => ({ ...p, name: e.target.value }))} /></td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} value={editRow.email} onChange={e => setEditRow(p => ({ ...p, email: e.target.value }))} /></td>
+                  <td className="px-2 py-2"><input className={inCls} style={inStyle} value={editRow.reg_no} onChange={e => setEditRow(p => ({ ...p, reg_no: e.target.value }))} /></td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <button onClick={handleSaveEdit} className="px-3 py-1 rounded text-xs font-semibold" style={{ background: T.green, color: "#fff" }}>Save</button>
+                      <button onClick={() => setEditId(null)} className="px-3 py-1 rounded text-xs" style={{ background: T.card, color: T.muted, border: `1px solid ${T.border}` }}>Cancel</button>
+                    </div>
+                  </td>
+                </tr>
+                {editError && (
+                  <tr><td colSpan={5} className="px-4 py-1.5 text-xs" style={{ color: "#f85149", background: "rgba(218,54,51,0.05)" }}>{editError}</td></tr>
+                )}
+              </Fragment>
+            ) : (
+              <tr key={r.id} style={{ borderBottom: i < registrations.length - 1 ? `1px solid ${T.border}30` : "none" }}>
+                <td className="px-4 py-2.5 text-xs" style={{ color: T.muted }}>{i + 1}</td>
+                <td className="px-4 py-2.5 font-medium" style={{ color: T.text }}>{r.name}</td>
+                <td className="px-4 py-2.5 text-xs" style={{ color: T.muted }}>{r.email || "—"}</td>
+                <td className="px-4 py-2.5 font-mono text-xs" style={{ color: T.blue }}>{r.reg_no}</td>
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => startEdit(r)} className="flex items-center gap-1 px-2.5 py-1 rounded text-xs"
+                      style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}><IconEdit /> Edit</button>
+                    <button onClick={() => handleDelete(r.id, r.name)} className="p-1.5 rounded"
+                      style={{ background: "rgba(218,54,51,0.1)", color: "#f85149" }}><IconTrash /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {registrations.length === 0 && !addingRow && (
+          <div className="py-12 text-center text-sm" style={{ color: T.muted }}>No registrations yet. Click "Add Row" to add manually.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 function SettingsSection({ user }: { user: User }) {
   const [pw, setPw] = useState(""); const [confirm, setConfirm] = useState("");
@@ -485,6 +645,7 @@ export default function AdminDashboard() {
     { id: "teams" as AdminNav, label: "Teams", icon: <IconUsers /> },
     { id: "users" as AdminNav, label: "Users", icon: <IconTable /> },
     { id: "access" as AdminNav, label: "Access", icon: <IconShield /> },
+    { id: "database" as AdminNav, label: "Database", icon: <IconDatabase /> },
     { id: "settings" as AdminNav, label: "Settings", icon: <IconSettings /> },
   ];
 
@@ -493,6 +654,7 @@ export default function AdminDashboard() {
     teams: "View and edit all teams",
     users: "All participants — export to CSV / Excel",
     access: "Manage core / admin / judge users",
+    database: "Upload and manage participant registrations",
     settings: "Account & password",
   };
 
@@ -549,6 +711,7 @@ export default function AdminDashboard() {
           {nav === "teams" && <TeamsSection teams={teams} onRefresh={loadData} />}
           {nav === "users" && <UsersSection />}
           {nav === "access" && <AccessSection />}
+          {nav === "database" && <DatabaseSection />}
           {nav === "settings" && <SettingsSection user={user} />}
         </div>
       </main>
