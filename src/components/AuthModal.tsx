@@ -96,6 +96,7 @@ export default function AuthModal({ initialMode, onClose }: AuthModalProps) {
         team_name: teamName,
         leader_id: userId,
         is_vit_chennai: isVitChennai,
+        points: 1000,
       }).select("id").single();
 
       if (teamError) throw teamError;

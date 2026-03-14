@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { judgeSupabase as supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 type JudgeNav = "scoring" | "leaderboard" | "settings";
@@ -207,7 +207,7 @@ export default function JudgeDashboard() {
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace("/judge"); return; }
-      const { data: check } = await supabase.from("judge_users").select("id").maybeSingle();
+      const { data: check } = await supabase.from("judge_users").select("id").eq("user_id", user.id).maybeSingle();
       if (!check) { await supabase.auth.signOut(); router.replace("/judge"); return; }
       setUser(user); loadTeams();
     });

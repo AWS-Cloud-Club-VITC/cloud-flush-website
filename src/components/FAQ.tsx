@@ -56,10 +56,10 @@ function FAQItem({
 }) {
   return (
     <div
-      className={`bg-bg-surface border rounded-xl transition-all duration-300 ${
+      className={`bg-transparent border rounded-xl transition-all duration-300 ${
         isOpen
           ? "border-gold/30 shadow-[0_0_15px_rgba(212,160,23,0.06)]"
-          : "border-gold/10 hover:border-gold/20"
+          : "border-gold/15 hover:border-gold/25"
       }`}
     >
       <button
@@ -67,11 +67,11 @@ function FAQItem({
         className="w-full flex items-center justify-between p-5 sm:p-6 text-left cursor-pointer group"
         aria-expanded={isOpen}
       >
-        <span className="font-[family-name:var(--font-syne)] text-base sm:text-lg font-semibold text-text-primary pr-4 group-hover:text-gold transition-colors">
+        <span className="font-(family-name:--font-space-grotesk) text-base sm:text-lg font-semibold text-text-primary pr-4 group-hover:text-gold transition-colors">
           {faq.question}
         </span>
         <span
-          className={`flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full border transition-all duration-300 ${
+          className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-full border transition-all duration-300 ${
             isOpen
               ? "border-gold bg-gold/10 rotate-45"
               : "border-gold/30 group-hover:border-gold"
@@ -92,8 +92,8 @@ function FAQItem({
       <div className={`faq-content ${isOpen ? "open" : ""}`}>
         <div>
           <div className="px-5 sm:px-6 pb-5 sm:pb-6">
-            <div className="h-[1px] bg-gold/10 mb-4" />
-            <p className="font-[family-name:var(--font-syne)] text-sm sm:text-base text-text-muted leading-relaxed">
+            <div className="h-px bg-gold/10 mb-4" />
+            <p className="font-(family-name:--font-space-grotesk) text-sm sm:text-base text-text-muted leading-relaxed">
               {faq.answer}
             </p>
           </div>
@@ -101,7 +101,7 @@ function FAQItem({
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-gold to-gold-light rounded-l-xl" />
+        <div className="absolute left-0 top-0 bottom-0 w-0.75 bg-linear-to-b from-gold to-gold-light rounded-l-xl" />
       )}
     </div>
   );
@@ -129,16 +129,16 @@ export default function FAQ() {
       id="faq"
       className="relative py-20 sm:py-32 px-4"
     >
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <h2
-          className={`font-[family-name:var(--font-cinzel)] text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary section-heading mb-16 transition-all duration-700 ${
+          className={`font-(family-name:--font-space-grotesk) text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary section-heading text-center mx-auto mb-16 transition-all duration-700 ${
             inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
           FREQUENTLY ASKED QUESTIONS
         </h2>
 
-        <div className="space-y-3 sm:space-y-4">
+        <div className="max-w-3xl space-y-3 sm:space-y-4">
           {faqs.map((faq, i) => (
             <div
               key={i}

@@ -66,19 +66,19 @@ export default function Timeline() {
     <section
       ref={sectionRef}
       id="timeline"
-      className="relative py-20 sm:py-32 px-4 bg-bg-surface/30"
+      className="relative py-20 sm:py-32 px-4"
     >
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <h2
-          className={`font-[family-name:var(--font-cinzel)] text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary section-heading mb-16 transition-all duration-700 ${
+          className={`font-(family-name:--font-space-grotesk) text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary section-heading text-center mx-auto mb-16 transition-all duration-700 ${
             inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
           EVENT TIMELINE
         </h2>
 
-        <div className="relative">
-          <div className="absolute left-4 sm:left-1/2 sm:-translate-x-[1px] top-0 bottom-0 w-[2px] bg-gradient-to-b from-gold/60 via-gold/30 to-transparent" />
+        <div className="relative max-w-5xl mx-auto">
+          <div className="absolute left-4 sm:left-1/2 sm:-translate-x-px top-0 bottom-0 w-0.5 bg-linear-to-b from-gold/60 via-gold/30 to-transparent" />
 
           <div className="space-y-8 sm:space-y-12">
             {events.map((event, i) => {
@@ -94,15 +94,15 @@ export default function Timeline() {
                   style={{ transitionDelay: `${200 + i * 120}ms` }}
                 >
                   <div className="sm:hidden flex items-start gap-4 pl-10 w-full">
-                    <div className="absolute left-[10px] top-1 timeline-dot" />
-                    <div className="bg-bg-surface border border-gold/10 rounded-xl p-4 w-full hover:border-gold/25 transition-colors">
-                      <span className="font-[family-name:var(--font-jetbrains)] text-xs text-gold/80 block mb-1">
+                    <div className="absolute left-2.5 top-1 timeline-dot" />
+                    <div className="bg-transparent border border-gold/15 rounded-xl p-4 w-full hover:border-gold/30 transition-colors">
+                      <span className="font-(family-name:--font-space-grotesk) text-xs text-gold/80 block mb-1">
                         {event.time}
                       </span>
-                      <h3 className="font-[family-name:var(--font-syne)] text-base font-semibold text-text-primary">
+                      <h3 className="font-(family-name:--font-space-grotesk) text-base font-semibold text-text-primary">
                         {event.title}
                       </h3>
-                      <p className="mt-1 font-[family-name:var(--font-syne)] text-sm text-text-muted leading-relaxed">
+                      <p className="mt-1 font-(family-name:--font-space-grotesk) text-sm text-text-muted leading-relaxed">
                         {event.description}
                       </p>
                     </div>
@@ -115,14 +115,14 @@ export default function Timeline() {
                       }`}
                     >
                       {isLeft && (
-                        <div className="bg-bg-surface border border-gold/10 rounded-xl p-5 hover:border-gold/25 transition-colors inline-block text-left max-w-md ml-auto">
-                          <span className="font-[family-name:var(--font-jetbrains)] text-xs text-gold/80 block mb-1">
+                        <div className="bg-transparent border border-gold/15 rounded-xl p-5 hover:border-gold/30 transition-colors inline-block text-left max-w-md ml-auto">
+                          <span className="font-(family-name:--font-space-grotesk) text-xs text-gold/80 block mb-1">
                             {event.time}
                           </span>
-                          <h3 className="font-[family-name:var(--font-syne)] text-lg font-semibold text-text-primary">
+                          <h3 className="font-(family-name:--font-space-grotesk) text-lg font-semibold text-text-primary">
                             {event.title}
                           </h3>
-                          <p className="mt-1 font-[family-name:var(--font-syne)] text-sm text-text-muted leading-relaxed">
+                          <p className="mt-1 font-(family-name:--font-space-grotesk) text-sm text-text-muted leading-relaxed">
                             {event.description}
                           </p>
                         </div>
@@ -135,14 +135,14 @@ export default function Timeline() {
 
                     <div className={`${!isLeft ? "pl-8" : ""}`}>
                       {!isLeft && (
-                        <div className="bg-bg-surface border border-gold/10 rounded-xl p-5 hover:border-gold/25 transition-colors inline-block text-left max-w-md">
-                          <span className="font-[family-name:var(--font-jetbrains)] text-xs text-gold/80 block mb-1">
+                        <div className="bg-transparent border border-gold/15 rounded-xl p-5 hover:border-gold/30 transition-colors inline-block text-left max-w-md">
+                          <span className="font-(family-name:--font-space-grotesk) text-xs text-gold/80 block mb-1">
                             {event.time}
                           </span>
-                          <h3 className="font-[family-name:var(--font-syne)] text-lg font-semibold text-text-primary">
+                          <h3 className="font-(family-name:--font-space-grotesk) text-lg font-semibold text-text-primary">
                             {event.title}
                           </h3>
-                          <p className="mt-1 font-[family-name:var(--font-syne)] text-sm text-text-muted leading-relaxed">
+                          <p className="mt-1 font-(family-name:--font-space-grotesk) text-sm text-text-muted leading-relaxed">
                             {event.description}
                           </p>
                         </div>

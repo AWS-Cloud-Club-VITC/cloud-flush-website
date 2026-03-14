@@ -1,18 +1,57 @@
 "use client";
 
-import { useEffect, useState, useCallback, Fragment } from "react";
+import { useEffect, useState, useCallback, Fragment, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { adminSupabase as supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
+import * as XLSX from "xlsx";
 
-type AdminNav = "overview" | "teams" | "users" | "access" | "database" | "settings";
+type AdminNav = "overview" | "teams" | "users" | "access" | "database" | "problems" | "constraints" | "betting" | "settings";
 type AccessTab = "core" | "admin" | "judge";
 type TeamRow = { id: string; team_name: string; leader_id: string; points: number; is_vit_chennai: boolean; created_at: string };
-type RoleUser = { id: string; user_id: string; email: string | null; name: string | null; created_at: string };
+type RoleUser = { id: string; user_id: string; email: string | null; name?: string | null; created_at?: string | null };
 type Stats = { teams: number; members: number; attendance: number; registrations: number };
 type MemberRow = { id: string; name: string; email: string; reg_no: string; user_id: string | null; team_id: string; teams: { team_name: string; leader_id: string } | null };
 type ExportRow = { name: string; team_name: string; email: string; reg_no: string; role: string };
 type Registration = { id: string; name: string; reg_no: string; email: string; team_name: string };
+type HackathonConfig = { id: number; starts_at: string; duration_minutes: number; is_running: boolean };
+type ProblemStatement = { id: string; domain: string; title: string; statement: string; created_at: string };
+type DomainConstraint = { id: string; domain: string; round_no: number; title: string; constraint_text: string; created_at: string };
+type ConstraintRoundSetting = { round_no: number; is_enabled: boolean };
+type BettingRoundControl = {
+  round_no: number;
+  phase: "setup" | "betting" | "decision" | "evaluation" | "settled";
+  min_bet: number;
+  max_bet: number;
+  show_betting_leaderboard: boolean;
+};
+type BettingRoundBet = {
+  id: string;
+  team_id: string;
+  initial_bet: number;
+  second_decision: "hold" | "double" | "withdraw" | null;
+  final_bet: number | null;
+  decision_locked: boolean;
+  teams: { team_name: string; points: number } | null;
+};
+type BettingRoundEvaluation = { team_id: string; score: number; notes: string | null };
+type BettingRoundResult = {
+  team_id: string;
+  rank_no: number;
+  score: number;
+  final_bet: number;
+  is_winner: boolean;
+  payout: number;
+  teams: { team_name: string } | null;
+};
+
+const ROUND_WEIGHTAGE: Record<number, number> = {
+  1: 1,
+  2: 1.5,
+  3: 2,
+  4: 2.5,
+  5: 3,
+};
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 function IconGrid() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>; }
@@ -26,11 +65,435 @@ function IconMenu() { return <svg width="20" height="20" fill="none" viewBox="0 
 function IconTable() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>; }
 function IconDownload() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>; }
 function IconDatabase() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>; }
+function IconDoc() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>; }
+function IconLock() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>; }
 function IconUpload() { return <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>; }
 function IconRefresh() { return <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>; }
 function IconEdit() { return <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>; }
+function IconPlay() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><polygon points="5 3 19 12 5 21 5 3"/></svg>; }
+function IconCoins() { return <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v5c0 1.66 3.13 3 7 3s7-1.34 7-3V6"/><path d="M5 11v5c0 1.66 3.13 3 7 3s7-1.34 7-3v-5"/></svg>; }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
+
+// ── Betting Control ──────────────────────────────────────────────────────────
+function BettingSection() {
+  const [roundNo, setRoundNo] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [savingControl, setSavingControl] = useState(false);
+  const [runningAction, setRunningAction] = useState<"timeout" | "settle" | null>(null);
+  const [control, setControl] = useState<BettingRoundControl | null>(null);
+  const [bets, setBets] = useState<BettingRoundBet[]>([]);
+  const [evaluations, setEvaluations] = useState<Record<string, { score: string; notes: string }>>({});
+  const [results, setResults] = useState<BettingRoundResult[]>([]);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const potPoints = bets.reduce((sum, row) => {
+    const committed = row.second_decision === "withdraw"
+      ? row.initial_bet
+      : (row.final_bet ?? row.initial_bet);
+    return sum + committed;
+  }, 0);
+
+  const evaluationLeaderboard = [...results].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.final_bet !== a.final_bet) return b.final_bet - a.final_bet;
+    return a.rank_no - b.rank_no;
+  });
+
+  const bettingPointsLeaderboard = [...bets]
+    .map((row) => ({
+      team_id: row.team_id,
+      team_name: row.teams?.team_name ?? row.team_id,
+      committed: row.second_decision === "withdraw" ? row.initial_bet : (row.final_bet ?? row.initial_bet),
+      initial_bet: row.initial_bet,
+      final_bet: row.final_bet ?? row.initial_bet,
+      second_decision: row.second_decision,
+    }))
+    .sort((a, b) => b.committed - a.committed);
+
+  const loadRound = useCallback(async () => {
+    setLoading(true);
+    setMsg(null);
+
+    const [controlRes, betsRes, evalRes, resultsRes] = await Promise.all([
+      supabase
+        .from("betting_round_control")
+        .select("round_no, phase, min_bet, max_bet, show_betting_leaderboard")
+        .eq("round_no", roundNo)
+        .maybeSingle(),
+      supabase
+        .from("round_bets")
+        .select("id, team_id, initial_bet, second_decision, final_bet, decision_locked, teams(team_name, points)")
+        .eq("round_no", roundNo)
+        .order("final_bet", { ascending: false }),
+      supabase
+        .from("round_evaluations")
+        .select("team_id, score, notes")
+        .eq("round_no", roundNo),
+      supabase
+        .from("round_results")
+        .select("team_id, rank_no, score, final_bet, is_winner, payout, teams(team_name)")
+        .eq("round_no", roundNo)
+        .order("rank_no", { ascending: true }),
+    ]);
+
+    if (controlRes.error || betsRes.error || evalRes.error || resultsRes.error) {
+      setMsg({ type: "err", text: controlRes.error?.message || betsRes.error?.message || evalRes.error?.message || resultsRes.error?.message || "Failed to load betting data." });
+      setLoading(false);
+      return;
+    }
+
+    setControl((controlRes.data ?? null) as BettingRoundControl | null);
+    setBets((betsRes.data ?? []) as unknown as BettingRoundBet[]);
+    setResults((resultsRes.data ?? []) as unknown as BettingRoundResult[]);
+
+    const evalMap: Record<string, { score: string; notes: string }> = {};
+    ((evalRes.data ?? []) as BettingRoundEvaluation[]).forEach((row) => {
+      evalMap[row.team_id] = { score: String(row.score), notes: row.notes ?? "" };
+    });
+    setEvaluations(evalMap);
+    setLoading(false);
+  }, [roundNo]);
+
+  useEffect(() => {
+    loadRound();
+  }, [loadRound]);
+
+  async function saveControl() {
+    if (!control) return;
+    setSavingControl(true);
+    setMsg(null);
+    const payload = {
+      round_no: roundNo,
+      phase: control.phase,
+      min_bet: control.min_bet,
+      max_bet: control.max_bet,
+      show_betting_leaderboard: control.show_betting_leaderboard,
+    };
+    const { error } = await supabase.from("betting_round_control").upsert(payload, { onConflict: "round_no" });
+    setSavingControl(false);
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+    setMsg({ type: "ok", text: "Round control saved." });
+    await loadRound();
+  }
+
+  async function saveEvaluation(teamId: string) {
+    const row = evaluations[teamId];
+    const score = Number(row?.score);
+    if (!Number.isFinite(score)) {
+      setMsg({ type: "err", text: "Enter a valid numeric score." });
+      return;
+    }
+    setMsg(null);
+    const { error } = await supabase
+      .from("round_evaluations")
+      .upsert({
+        round_no: roundNo,
+        team_id: teamId,
+        score,
+        notes: row?.notes ?? null,
+      }, { onConflict: "round_no,team_id" });
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+    setMsg({ type: "ok", text: "Evaluation saved." });
+    await loadRound();
+  }
+
+  async function applyTimeoutHold() {
+    if (!control || control.phase !== "decision") {
+      setMsg({ type: "err", text: "Timeout hold can be applied only in decision phase." });
+      return;
+    }
+    const confirmed = confirm(`Apply timeout hold for round ${roundNo}? This will lock all pending teams as HOLD.`);
+    if (!confirmed) return;
+    setRunningAction("timeout");
+    setMsg(null);
+    const { error } = await supabase.rpc("apply_hold_timeouts", { p_round_no: roundNo });
+    setRunningAction(null);
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+    setMsg({ type: "ok", text: "Pending decisions defaulted to Hold." });
+    await loadRound();
+  }
+
+  async function settleRound() {
+    const confirmed = confirm(`Settle round ${roundNo}? This applies weighted payout by final bet among winners.`);
+    if (!confirmed) return;
+    setRunningAction("settle");
+    setMsg(null);
+    const { error } = await supabase.rpc("settle_betting_round", { p_round_no: roundNo });
+    setRunningAction(null);
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+    setMsg({ type: "ok", text: "Round settled successfully." });
+    await loadRound();
+  }
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-3 mb-3 items-stretch">
+          <div className="rounded-md border p-4" style={{ borderColor: T.border, background: T.bg }}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: T.text }}>Constraint Betting System</p>
+                <p className="text-xs" style={{ color: T.muted }}>Payout mode: winners share pot proportionally by final bet.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={roundNo}
+                  onChange={(e) => setRoundNo(Number(e.target.value))}
+                  className="px-2.5 py-1.5 rounded-md text-xs outline-none"
+                  style={{ ...inputStyle, width: 120 }}
+                >
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <option key={n} value={n}>Round {n}</option>
+                  ))}
+                </select>
+                <button onClick={loadRound} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs" style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}>
+                  <IconRefresh /> Refresh
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-md border px-4 py-3 flex flex-col justify-between" style={{ borderColor: `${T.yellow}55`, background: "linear-gradient(90deg, rgba(212,160,23,0.18) 0%, rgba(212,160,23,0.05) 100%)" }}>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-md flex items-center justify-center" style={{ background: "rgba(0,0,0,0.22)", color: T.yellow, border: `1px solid ${T.yellow}55` }}>
+                <IconCoins />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest" style={{ color: T.yellow }}>Round Pot</p>
+                <p className="text-xl font-extrabold" style={{ color: T.text }}>{potPoints.toLocaleString()} pts</p>
+              </div>
+            </div>
+            <p className="text-[11px] mt-2" style={{ color: T.muted }}>
+              Pot = total committed stake this round. If a team selects withdraw, their initial bet is still added to pot.
+            </p>
+          </div>
+        </div>
+
+        {loading || !control ? (
+          <p className="text-sm" style={{ color: T.muted }}>Loading round controls…</p>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Phase</label>
+              <select
+                value={control.phase}
+                onChange={(e) => setControl({ ...control, phase: e.target.value as BettingRoundControl["phase"] })}
+                className="w-full px-3 py-1.5 rounded-md text-sm outline-none"
+                style={inputStyle}
+              >
+                {(["setup", "betting", "decision", "evaluation", "settled"] as const).map((phase) => (
+                  <option key={phase} value={phase}>{phase}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Min Bet</label>
+              <input
+                type="number"
+                value={control.min_bet}
+                onChange={(e) => setControl({ ...control, min_bet: Number(e.target.value) || 0 })}
+                className={inputCls}
+                style={inputStyle}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Max Bet</label>
+              <input
+                type="number"
+                value={control.max_bet}
+                onChange={(e) => setControl({ ...control, max_bet: Number(e.target.value) || 0 })}
+                className={inputCls}
+                style={inputStyle}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Leaderboard Visibility</label>
+              <button
+                type="button"
+                onClick={() => setControl({ ...control, show_betting_leaderboard: !control.show_betting_leaderboard })}
+                className="w-full px-3 py-2 rounded-md text-xs font-semibold"
+                style={control.show_betting_leaderboard
+                  ? { background: `${T.green}22`, color: T.green, border: `1px solid ${T.green}55` }
+                  : { background: `${T.yellow}22`, color: T.yellow, border: `1px solid ${T.yellow}55` }}
+              >
+                {control.show_betting_leaderboard ? "Visible to Leaders" : "Hidden from Leaders"}
+              </button>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={saveControl}
+                disabled={savingControl}
+                className="w-full px-3 py-2 rounded-md text-xs font-semibold text-white disabled:opacity-60"
+                style={{ background: T.blue }}
+              >
+                {savingControl ? "Saving…" : "Save Control"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2 mt-4">
+          <button
+            onClick={applyTimeoutHold}
+            disabled={runningAction !== null}
+            className="px-3 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-60"
+            style={{ background: T.yellow }}
+          >
+            {runningAction === "timeout" ? "Applying…" : "Apply Timeout → Hold"}
+          </button>
+          <button
+            onClick={settleRound}
+            disabled={runningAction !== null}
+            className="px-3 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-60"
+            style={{ background: T.green }}
+          >
+            {runningAction === "settle" ? "Settling…" : "Settle Round"}
+          </button>
+        </div>
+
+        {msg && <p className="text-xs mt-3" style={{ color: msg.type === "ok" ? T.green : T.red }}>{msg.text}</p>}
+      </Card>
+
+      <Card>
+        <p className="text-sm font-semibold mb-3" style={{ color: T.text }}>Bets & Evaluation</p>
+        {bets.length === 0 ? (
+          <p className="text-sm" style={{ color: T.muted }}>No bets submitted for this round.</p>
+        ) : (
+          <div className="space-y-2">
+            {bets.map((row) => (
+              <div key={row.id} className="rounded-md border p-3" style={{ borderColor: T.border, background: T.bg }}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: T.text }}>{row.teams?.team_name ?? row.team_id}</p>
+                    <p className="text-[10px]" style={{ color: T.muted }}>
+                      Initial: {row.initial_bet} · Final: {row.final_bet ?? row.initial_bet} · Decision: {row.second_decision ?? "pending"}
+                    </p>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded" style={row.decision_locked ? { background: `${T.green}20`, color: T.green, border: `1px solid ${T.green}55` } : { background: `${T.yellow}20`, color: T.yellow, border: `1px solid ${T.yellow}55` }}>
+                    {row.decision_locked ? "Decision locked" : "Decision pending"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-[140px_1fr_auto] gap-2 mt-3">
+                  <input
+                    type="number"
+                    value={evaluations[row.team_id]?.score ?? ""}
+                    onChange={(e) => setEvaluations((prev) => ({
+                      ...prev,
+                      [row.team_id]: { score: e.target.value, notes: prev[row.team_id]?.notes ?? "" },
+                    }))}
+                    placeholder="Score"
+                    className={inputCls}
+                    style={inputStyle}
+                  />
+                  <input
+                    value={evaluations[row.team_id]?.notes ?? ""}
+                    onChange={(e) => setEvaluations((prev) => ({
+                      ...prev,
+                      [row.team_id]: { score: prev[row.team_id]?.score ?? "", notes: e.target.value },
+                    }))}
+                    placeholder="Notes (optional)"
+                    className={inputCls}
+                    style={inputStyle}
+                  />
+                  <button
+                    onClick={() => saveEvaluation(row.team_id)}
+                    className="px-3 py-1.5 rounded-md text-xs font-semibold text-white"
+                    style={{ background: T.blue }}
+                  >
+                    Save Score
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <p className="text-sm font-semibold mb-3" style={{ color: T.text }}>Round Results</p>
+        {results.length === 0 ? (
+          <p className="text-sm" style={{ color: T.muted }}>No settlement results yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {results.map((r) => (
+              <div key={r.team_id} className="rounded-md border p-3 flex items-center justify-between" style={{ borderColor: T.border, background: T.bg }}>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: T.text }}>#{r.rank_no} · {r.teams?.team_name ?? r.team_id}</p>
+                  <p className="text-[10px]" style={{ color: T.muted }}>Score {r.score} · Final Bet {r.final_bet}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs" style={{ color: r.is_winner ? T.green : T.red }}>{r.is_winner ? "Winner" : "Eliminated"}</p>
+                  <p className="text-sm font-bold" style={{ color: T.yellow }}>Payout {r.payout}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <p className="text-sm font-semibold mb-3" style={{ color: T.text }}>Leaderboards</p>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          <div className="rounded-md border p-3" style={{ borderColor: T.border, background: T.bg }}>
+            <p className="text-xs uppercase tracking-widest mb-2" style={{ color: T.muted }}>Evaluation Leaderboard</p>
+            {evaluationLeaderboard.length === 0 ? (
+              <p className="text-sm" style={{ color: T.muted }}>No evaluation scores yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {evaluationLeaderboard.map((row, idx) => (
+                  <div key={`eval-${row.team_id}`} className="rounded-md border px-3 py-2 flex items-center justify-between" style={{ borderColor: T.border, background: "rgba(255,255,255,0.02)" }}>
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: T.text }}>#{idx + 1} · {row.teams?.team_name ?? row.team_id}</p>
+                      <p className="text-[10px]" style={{ color: T.muted }}>Score {row.score} · Rank {row.rank_no}</p>
+                    </div>
+                    <p className="text-xs font-semibold" style={{ color: row.is_winner ? T.green : T.muted }}>{row.is_winner ? "Winner" : "Eliminated"}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-md border p-3" style={{ borderColor: T.border, background: T.bg }}>
+            <p className="text-xs uppercase tracking-widest mb-2" style={{ color: T.muted }}>Betting Points Leaderboard</p>
+            {bettingPointsLeaderboard.length === 0 ? (
+              <p className="text-sm" style={{ color: T.muted }}>No betting activity yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {bettingPointsLeaderboard.map((row, idx) => (
+                  <div key={`bet-${row.team_id}`} className="rounded-md border px-3 py-2 flex items-center justify-between" style={{ borderColor: T.border, background: "rgba(255,255,255,0.02)" }}>
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: T.text }}>#{idx + 1} · {row.team_name}</p>
+                      <p className="text-[10px]" style={{ color: T.muted }}>
+                        Initial {row.initial_bet} · Final {row.final_bet} · Decision {row.second_decision ?? "pending"}
+                      </p>
+                    </div>
+                    <p className="text-sm font-bold" style={{ color: T.yellow }}>{row.committed} pts</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+
 const T = {
   bg: "#0d1117", card: "#161b22", border: "#30363d",
   text: "#e6edf3", muted: "#8b949e", blue: "#58a6ff",
@@ -86,6 +549,130 @@ function Overview({ stats, teams }: { stats: Stats; teams: TeamRow[] }) {
         </div>
       </Card>
     </div>
+  );
+}
+
+function toLocalInputValue(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function HackathonControlCard({
+  config,
+  user,
+  onUpdated,
+}: {
+  config: HackathonConfig;
+  user: User;
+  onUpdated: () => Promise<void>;
+}) {
+  const [durationHours, setDurationHours] = useState(String(Math.max(1, Math.round(config.duration_minutes / 60))));
+  const [startsAtLocal, setStartsAtLocal] = useState(toLocalInputValue(config.starts_at));
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  useEffect(() => {
+    setDurationHours(String(Math.max(1, Math.round(config.duration_minutes / 60))));
+    setStartsAtLocal(toLocalInputValue(config.starts_at));
+  }, [config.duration_minutes, config.starts_at]);
+
+  async function saveConfig(next: { startsAt: string; durationMinutes: number; isRunning: boolean }) {
+    setSaving(true);
+    setMsg(null);
+
+    const payload = {
+      starts_at: next.startsAt,
+      duration_minutes: next.durationMinutes,
+      is_running: next.isRunning,
+      updated_by: user.id,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Update existing config row first to avoid accidental insert-policy failures.
+    const { data: updatedRows, error: updateError } = await supabase
+      .from("hackathon_config")
+      .update(payload)
+      .eq("id", 1)
+      .select("id");
+
+    let error = updateError;
+
+    if (!error && (!updatedRows || updatedRows.length === 0)) {
+      const { error: insertError } = await supabase.from("hackathon_config").insert({ id: 1, ...payload });
+      error = insertError;
+    }
+
+    setSaving(false);
+    if (error) {
+      setMsg({ type: "err", text: `${error.message}. Ensure hackathon_config row id=1 exists and admin policy is applied.` });
+      return;
+    }
+    setMsg({ type: "ok", text: "Hackathon timer updated." });
+    await onUpdated();
+  }
+
+  async function handleSaveDraft() {
+    const hours = Math.max(1, parseInt(durationHours || "24", 10));
+    const startsAt = startsAtLocal ? new Date(startsAtLocal).toISOString() : config.starts_at;
+    await saveConfig({ startsAt, durationMinutes: hours * 60, isRunning: config.is_running });
+  }
+
+  async function handleStartNow() {
+    const hours = Math.max(1, parseInt(durationHours || "24", 10));
+    await saveConfig({ startsAt: new Date().toISOString(), durationMinutes: hours * 60, isRunning: true });
+  }
+
+  async function handleReset() {
+    const hours = Math.max(1, parseInt(durationHours || "24", 10));
+    await saveConfig({ startsAt: new Date().toISOString(), durationMinutes: hours * 60, isRunning: false });
+  }
+
+  return (
+    <Card>
+      <p className="text-xs uppercase tracking-widest mb-3" style={{ color: T.muted }}>Hackathon Timer Control</p>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Duration (Hours)</label>
+          <input
+            type="number"
+            min={1}
+            value={durationHours}
+            onChange={e => setDurationHours(e.target.value)}
+            className={inputCls}
+            style={inputStyle}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Planned Start</label>
+          <input
+            type="datetime-local"
+            value={startsAtLocal}
+            onChange={e => setStartsAtLocal(e.target.value)}
+            className={inputCls}
+            style={inputStyle}
+          />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2 mt-3">
+        <button onClick={handleSaveDraft} disabled={saving} className="px-3 py-1.5 rounded-md text-xs font-semibold"
+          style={{ background: "#1f6feb20", color: T.blue, border: `1px solid ${T.blue}50` }}>
+          Save Config
+        </button>
+        <button onClick={handleStartNow} disabled={saving} className="px-3 py-1.5 rounded-md text-xs font-semibold text-white"
+          style={{ background: T.green }}>
+          Start Hackathon
+        </button>
+        <button onClick={handleReset} disabled={saving} className="px-3 py-1.5 rounded-md text-xs font-semibold"
+          style={{ background: "rgba(218,54,51,0.1)", color: T.red, border: `1px solid ${T.red}40` }}>
+          Reset
+        </button>
+      </div>
+      <p className="mt-2 text-xs" style={{ color: config.is_running ? T.green : T.muted }}>
+        Status: {config.is_running ? "Running" : "Not started"} · Current duration: {Math.max(1, Math.round(config.duration_minutes / 60))}h
+      </p>
+      {msg && <p className="mt-1 text-xs" style={{ color: msg.type === "ok" ? T.green : T.red }}>{msg.text}</p>}
+    </Card>
   );
 }
 
@@ -177,11 +764,18 @@ function AccessSection() {
   const [adding, setAdding] = useState(false); const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const tables: Record<AccessTab, string> = { core: "core_users", admin: "admin_users", judge: "judge_users" };
+  const labels: Record<AccessTab, string> = { core: "Coordinator", admin: "Admin", judge: "Judge" };
 
   const load = useCallback(async () => {
     const results = await Promise.all(
-      (["core", "admin", "judge"] as AccessTab[]).map(t => supabase.from(tables[t]).select("id, user_id, email, name, created_at").order("created_at"))
+      (["core", "admin", "judge"] as AccessTab[]).map(t => supabase.from(tables[t]).select("*").order("id"))
     );
+
+    const firstError = results.find(r => r.error)?.error;
+    if (firstError) {
+      setMsg({ type: "err", text: `Failed to load access users: ${firstError.message}` });
+    }
+
     setUsers({ core: results[0].data ?? [], admin: results[1].data ?? [], judge: results[2].data ?? [] });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -195,13 +789,39 @@ function AccessSection() {
       if (!uid) throw new Error("No user found with that email. They must sign up first.");
       const { error } = await supabase.from(tables[tab]).insert({ user_id: uid, email: addEmail.trim(), name: addName.trim() || null });
       if (error) throw error;
-      setAddEmail(""); setAddName(""); setMsg({ type: "ok", text: `Added to ${tab}.` }); load();
+      setAddEmail(""); setAddName(""); setMsg({ type: "ok", text: `Added to ${labels[tab]}.` }); load();
     } catch (err: unknown) { setMsg({ type: "err", text: err instanceof Error ? err.message : "Failed." }); }
     finally { setAdding(false); }
   }
 
-  async function handleRemove(id: string) {
-    await supabase.from(tables[tab]).delete().eq("id", id);
+  async function handleRemove(target: RoleUser) {
+    setMsg(null);
+    const who = target.email ?? target.user_id;
+    if (!confirm(`Remove ${who} from ${labels[tab]} access?`)) return;
+
+    if (tab === "admin") {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user && target.user_id === user.id) {
+        setMsg({ type: "err", text: "You cannot remove your own admin access." });
+        return;
+      }
+
+      if (users.admin.length <= 1) {
+        setMsg({ type: "err", text: "At least one admin must remain." });
+        return;
+      }
+    }
+
+    const { error } = await supabase.from(tables[tab]).delete().eq("id", target.id);
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+
+    setMsg({ type: "ok", text: `${labels[tab]} access removed.` });
     load();
   }
 
@@ -214,14 +834,14 @@ function AccessSection() {
           <button key={t} onClick={() => setTab(t)}
             className="px-4 py-1.5 rounded-full text-xs font-semibold capitalize transition-all"
             style={tab === t ? { background: tabColors[t], color: "#0d1117" } : { background: "transparent", color: T.muted, border: `1px solid ${T.border}` }}>
-            {t} ({users[t].length})
+            {labels[t]} ({users[t].length})
           </button>
         ))}
       </div>
 
       {/* Add form */}
       <Card>
-        <p className="text-xs uppercase tracking-widest mb-3 font-semibold" style={{ color: tabColors[tab] }}>Add {tab} user</p>
+        <p className="text-xs uppercase tracking-widest mb-3 font-semibold" style={{ color: tabColors[tab] }}>Add {labels[tab]} user</p>
         <form onSubmit={handleAdd} className="flex flex-wrap gap-2 items-end">
           <div className="space-y-1">
             <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Email (must exist in auth)</label>
@@ -248,14 +868,14 @@ function AccessSection() {
 
       {/* Users list */}
       <div className="space-y-2">
-        {users[tab].length === 0 && <p className="text-sm py-4 text-center" style={{ color: T.muted }}>No {tab} users.</p>}
+        {users[tab].length === 0 && <p className="text-sm py-4 text-center" style={{ color: T.muted }}>No {labels[tab]} users.</p>}
         {users[tab].map(u => (
           <div key={u.id} className="flex items-center justify-between rounded-lg px-3 py-2 border" style={{ background: T.bg, borderColor: T.border }}>
             <div>
               <p className="text-sm font-medium" style={{ color: T.text }}>{u.name ?? <span style={{ color: T.muted }}>—</span>}</p>
               <p className="text-xs" style={{ color: T.muted }}>{u.email ?? u.user_id}</p>
             </div>
-            <button onClick={() => handleRemove(u.id)} className="p-1.5 rounded hover:opacity-80 transition-opacity" style={{ color: T.red }}>
+            <button onClick={() => handleRemove(u)} className="p-1.5 rounded hover:opacity-80 transition-opacity" style={{ color: T.red }}>
               <IconTrash />
             </button>
           </div>
@@ -270,24 +890,43 @@ function UsersSection() {
   const [rows, setRows] = useState<ExportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [teamsWithoutMembers, setTeamsWithoutMembers] = useState<string[]>([]);
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("team_members")
-        .select("id, name, email, reg_no, user_id, team_id, teams(team_name, leader_id)")
-        .order("team_id");
-      if (!data) { setLoading(false); return; }
-      const members = data as unknown as MemberRow[];
+      const [{ data: teamsData }, { data: membersData }] = await Promise.all([
+        supabase.from("teams").select("id, team_name, leader_id").order("created_at"),
+        supabase
+          .from("team_members")
+          .select("id, name, email, reg_no, user_id, team_id, teams(team_name, leader_id)")
+          .order("created_at"),
+      ]);
+
+      const teams = (teamsData ?? []) as Array<{ id: string; team_name: string; leader_id: string }>;
+      const members = (membersData ?? []) as unknown as MemberRow[];
+
       const byTeam = new Map<string, { team_name: string; leader_id: string; members: MemberRow[] }>();
+      for (const t of teams) {
+        byTeam.set(t.id, { team_name: t.team_name, leader_id: t.leader_id, members: [] });
+      }
+
       for (const m of members) {
-        const tname = m.teams?.team_name ?? "Unknown";
-        const lid = m.teams?.leader_id ?? "";
+        const tname = m.teams?.team_name ?? byTeam.get(m.team_id)?.team_name ?? "Unknown";
+        const lid = m.teams?.leader_id ?? byTeam.get(m.team_id)?.leader_id ?? "";
         if (!byTeam.has(m.team_id)) byTeam.set(m.team_id, { team_name: tname, leader_id: lid, members: [] });
         byTeam.get(m.team_id)!.members.push(m);
       }
+
       const exportRows: ExportRow[] = [];
+      const missing: string[] = [];
+
       for (const { team_name, leader_id, members: tm } of byTeam.values()) {
+        if (tm.length === 0) {
+          missing.push(team_name);
+          exportRows.push({ name: "—", team_name, email: "—", reg_no: "—", role: "No Members" });
+          continue;
+        }
+
         const sorted = [...tm].sort((a, b) => {
           if (a.user_id === leader_id) return -1;
           if (b.user_id === leader_id) return 1;
@@ -297,6 +936,8 @@ function UsersSection() {
           exportRows.push({ name: m.name, team_name, email: m.email, reg_no: m.reg_no, role: m.user_id === leader_id ? "Leader" : "Member" });
         }
       }
+
+      setTeamsWithoutMembers(missing);
       setRows(exportRows);
       setLoading(false);
     }
@@ -354,6 +995,11 @@ function UsersSection() {
       <p className="text-xs" style={{ color: T.muted }}>
         Teams sorted by creation order — leader always listed first within each team. Export opens in Excel.
       </p>
+      {teamsWithoutMembers.length > 0 && (
+        <p className="text-xs" style={{ color: T.yellow }}>
+          {teamsWithoutMembers.length} team(s) have no rows in team_members yet: {teamsWithoutMembers.join(", ")}
+        </p>
+      )}
       {loading ? (
         <p className="text-sm animate-pulse py-8 text-center" style={{ color: T.muted }}>Loading…</p>
       ) : (
@@ -402,6 +1048,9 @@ function DatabaseSection() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editRow, setEditRow] = useState({ name: "", email: "", reg_no: "" });
   const [editError, setEditError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadRegistrations = useCallback(async () => {
     const { data } = await supabase.from("registrations").select("*").order("name");
@@ -445,6 +1094,163 @@ function DatabaseSection() {
     loadRegistrations();
   }
 
+  function exportExcel() {
+    const rows = registrations.map((r) => ({
+      "Name": r.name,
+      "Email ID": r.email ?? "",
+      "Reg No": r.reg_no,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Registrations");
+    XLSX.writeFile(wb, "cloud-flush-registrations.xlsx");
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportMsg(null);
+
+    try {
+      const ab = await file.arrayBuffer();
+      const wb = XLSX.read(ab, { type: "array" });
+      const firstSheet = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
+
+      if (!raw.length) throw new Error("Sheet is empty.");
+
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const keyMap = new Map<string, string>();
+      for (const k of Object.keys(raw[0])) keyMap.set(normalize(k), k);
+
+      const getCol = (candidates: string[]) => {
+        for (const c of candidates) {
+          const real = keyMap.get(c);
+          if (real) return real;
+        }
+        return null;
+      };
+
+      const nameCol = getCol(["name", "fullname", "studentname", "participantname"]);
+      const emailCol = getCol(["email", "emailid", "emailaddress", "mail"]);
+      const regCol = getCol(["regno", "registrationno", "registrationnumber", "regnumber", "reg"]);
+
+      if (!nameCol || !regCol) {
+        throw new Error("Could not find required columns. Required: Name and Reg No. Optional: Email ID.");
+      }
+
+      const normReg = (value: string) => value.replace(/\s+/g, "").toUpperCase();
+      const prepared = raw.map((r, idx) => ({
+        rowNo: idx + 2,
+        name: String(r[nameCol] ?? "").trim(),
+        email: emailCol ? String(r[emailCol] ?? "").trim() : "",
+        reg_no: String(r[regCol] ?? "").trim(),
+        team_name: "",
+      }));
+
+      let invalid = 0;
+      let duplicateInFile = 0;
+      const seenInFile = new Set<string>();
+      const rows: Array<{ rowNo: number; name: string; email: string; reg_no: string; team_name: string }> = [];
+
+      for (const row of prepared) {
+        if (!row.name || !row.reg_no) {
+          invalid++;
+          continue;
+        }
+
+        const regKey = normReg(row.reg_no);
+        if (seenInFile.has(regKey)) {
+          duplicateInFile++;
+          continue;
+        }
+
+        seenInFile.add(regKey);
+        rows.push(row);
+      }
+
+      if (!rows.length) {
+        throw new Error("No importable rows found. Check that Name and Reg No are filled and not repeated.");
+      }
+
+      const regNos = rows.map((r) => r.reg_no);
+      const existingRegs = new Set<string>();
+      const chunkSize = 200;
+
+      for (let i = 0; i < regNos.length; i += chunkSize) {
+        const chunk = regNos.slice(i, i + chunkSize);
+        const { data, error } = await supabase
+          .from("registrations")
+          .select("reg_no")
+          .in("reg_no", chunk);
+
+        if (error) {
+          throw new Error(`Failed to validate existing registrations: ${error.message}`);
+        }
+
+        for (const rec of data ?? []) {
+          existingRegs.add(normReg(String(rec.reg_no ?? "")));
+        }
+      }
+
+      let duplicateInDb = 0;
+      let inserted = 0;
+      let insertErrors = 0;
+      const sampleErrors: string[] = [];
+
+      for (const row of rows) {
+        if (existingRegs.has(normReg(row.reg_no))) {
+          duplicateInDb++;
+          continue;
+        }
+
+        const { error } = await supabase.from("registrations").insert({
+          name: row.name,
+          email: row.email,
+          reg_no: row.reg_no,
+          team_name: row.team_name,
+        });
+
+        if (error) {
+          insertErrors++;
+          if (sampleErrors.length < 3) {
+            sampleErrors.push(`Row ${row.rowNo} (${row.reg_no}): ${error.message}`);
+          }
+          continue;
+        }
+
+        inserted++;
+      }
+
+      const skipped = invalid + duplicateInFile + duplicateInDb + insertErrors;
+      const summary = [
+        `Imported ${inserted} row${inserted === 1 ? "" : "s"}`,
+        `Skipped ${skipped}`,
+        `Invalid ${invalid}`,
+        `File duplicates ${duplicateInFile}`,
+        `Already in DB ${duplicateInDb}`,
+        `Insert errors ${insertErrors}`,
+      ].join(" | ");
+
+      const details = sampleErrors.length ? ` First errors: ${sampleErrors.join(" ; ")}` : "";
+
+      setImportMsg({
+        type: insertErrors ? "err" : "ok",
+        text: `${summary}.${details}`,
+      });
+
+      await loadRegistrations();
+    } catch (err: unknown) {
+      setImportMsg({ type: "err", text: err instanceof Error ? err.message : "Import failed." });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   const inCls = "px-2.5 py-1.5 rounded-md text-xs w-full focus:outline-none";
   const inStyle: React.CSSProperties = { background: T.bg, color: T.text, border: `1px solid ${T.border}` };
 
@@ -456,6 +1262,29 @@ function DatabaseSection() {
           <p className="text-xs mt-0.5" style={{ color: T.muted }}>{registrations.length} total</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
+            style={{ background: "rgba(88,166,255,0.15)", color: T.blue, border: `1px solid rgba(88,166,255,0.3)` }}
+            disabled={importing}
+          >
+            <IconUpload /> {importing ? "Importing…" : "Import Excel"}
+          </button>
+          <button
+            onClick={exportExcel}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
+            style={{ background: "rgba(35,134,54,0.15)", color: T.green, border: `1px solid rgba(35,134,54,0.3)` }}
+            disabled={!registrations.length}
+          >
+            <IconDownload /> Export Excel
+          </button>
           <button onClick={loadRegistrations} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs"
             style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}>
             <IconRefresh /> Refresh
@@ -473,6 +1302,11 @@ function DatabaseSection() {
           )}
         </div>
       </div>
+      {importMsg && (
+        <div className="px-4 py-2 text-xs" style={{ color: importMsg.type === "ok" ? T.green : T.red, borderBottom: `1px solid ${T.border}` }}>
+          {importMsg.text}
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm" style={{ minWidth: "560px" }}>
           <thead>
@@ -547,6 +1381,386 @@ function DatabaseSection() {
   );
 }
 
+// ── Problem Statements ───────────────────────────────────────────────────────
+function ProblemStatementsSection() {
+  const [items, setItems] = useState<ProblemStatement[]>([]);
+  const [domain, setDomain] = useState("");
+  const [title, setTitle] = useState("");
+  const [statement, setStatement] = useState("");
+  const [filterDomain, setFilterDomain] = useState("all");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const loadItems = useCallback(async () => {
+    const { data } = await supabase
+      .from("problem_statements")
+      .select("id, domain, title, statement, created_at")
+      .order("created_at", { ascending: true });
+    setItems((data ?? []) as ProblemStatement[]);
+  }, []);
+
+  useEffect(() => { loadItems(); }, [loadItems]);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    const cleanDomain = domain.trim();
+    const cleanTitle = title.trim();
+    const cleanStatement = statement.trim();
+    if (!cleanDomain || !cleanTitle || !cleanStatement) {
+      setMsg({ type: "err", text: "Domain, title and statement are required." });
+      return;
+    }
+
+    setSaving(true);
+    setMsg(null);
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase.from("problem_statements").insert({
+      domain: cleanDomain,
+      title: cleanTitle,
+      statement: cleanStatement,
+      created_by: u.user?.id ?? null,
+    });
+    setSaving(false);
+
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+
+    setDomain("");
+    setTitle("");
+    setStatement("");
+    setMsg({ type: "ok", text: "Problem statement added." });
+    await loadItems();
+  }
+
+  async function handleDelete(id: string, itemTitle: string) {
+    if (!confirm(`Delete problem statement \"${itemTitle}\"?`)) return;
+    const { error } = await supabase.from("problem_statements").delete().eq("id", id);
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+    setMsg({ type: "ok", text: "Problem statement deleted." });
+    await loadItems();
+  }
+
+  const domainOptions = Array.from(new Set(items.map((it) => it.domain))).sort((a, b) => a.localeCompare(b));
+  const visibleItems = filterDomain === "all" ? items : items.filter((it) => it.domain === filterDomain);
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <p className="text-sm font-semibold mb-3" style={{ color: T.text }}>Add Problem Statement</p>
+        <form onSubmit={handleAdd} className="space-y-3">
+          <div>
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Domain</label>
+            <input
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              className={inputCls}
+              style={inputStyle}
+              placeholder="e.g. Cloud Architecture"
+              onFocus={e => (e.target.style.borderColor = T.blue)}
+              onBlur={e => (e.target.style.borderColor = T.border)}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Title</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className={inputCls}
+              style={inputStyle}
+              placeholder="Round / Problem title"
+              onFocus={e => (e.target.style.borderColor = T.blue)}
+              onBlur={e => (e.target.style.borderColor = T.border)}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Statement</label>
+            <textarea
+              value={statement}
+              onChange={(e) => setStatement(e.target.value)}
+              rows={6}
+              className={`${inputCls} resize-y`}
+              style={inputStyle}
+              placeholder="Paste full problem statement..."
+              onFocus={e => (e.target.style.borderColor = T.blue)}
+              onBlur={e => (e.target.style.borderColor = T.border)}
+            />
+          </div>
+          {msg && <p className="text-xs" style={{ color: msg.type === "ok" ? T.green : T.red }}>{msg.text}</p>}
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-3 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-60"
+            style={{ background: T.green }}
+          >
+            {saving ? "Saving…" : "Add Statement"}
+          </button>
+        </form>
+      </Card>
+
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-semibold" style={{ color: T.text }}>Available Problem Statements</p>
+          <div className="flex items-center gap-2">
+            <select
+              value={filterDomain}
+              onChange={(e) => setFilterDomain(e.target.value)}
+              className="px-2.5 py-1.5 rounded-md text-xs outline-none"
+              style={{ ...inputStyle, width: 180 }}
+            >
+              <option value="all">All domains</option>
+              {domainOptions.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            <button onClick={loadItems} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs" style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}>
+              <IconRefresh /> Refresh
+            </button>
+          </div>
+        </div>
+        {visibleItems.length === 0 ? (
+          <p className="text-sm" style={{ color: T.muted }}>No problem statements yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {visibleItems.map((it, idx) => (
+              <div key={it.id} className="rounded-md border p-3" style={{ borderColor: T.border, background: T.bg }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs" style={{ color: T.muted }}>Problem {idx + 1}</p>
+                    <p className="text-sm font-semibold" style={{ color: T.text }}>{it.title}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: T.blue }}>Domain: {it.domain}</p>
+                  </div>
+                  <button onClick={() => handleDelete(it.id, it.title)} className="p-1.5 rounded" style={{ background: "rgba(218,54,51,0.1)", color: T.red }}>
+                    <IconTrash />
+                  </button>
+                </div>
+                <p className="text-xs mt-2 whitespace-pre-wrap" style={{ color: T.muted }}>{it.statement}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function ConstraintsSection() {
+  const [items, setItems] = useState<DomainConstraint[]>([]);
+  const [roundSettings, setRoundSettings] = useState<Record<number, boolean>>({ 1: true, 2: true, 3: true, 4: true, 5: true });
+  const [domain, setDomain] = useState("");
+  const [roundNo, setRoundNo] = useState(1);
+  const [title, setTitle] = useState("");
+  const [constraintText, setConstraintText] = useState("");
+  const [filterDomain, setFilterDomain] = useState("all");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const loadItems = useCallback(async () => {
+    const { data } = await supabase
+      .from("domain_constraints")
+      .select("id, domain, round_no, title, constraint_text, created_at")
+      .order("round_no", { ascending: true })
+      .order("created_at", { ascending: true });
+    setItems((data ?? []) as DomainConstraint[]);
+  }, []);
+
+  const loadRoundSettings = useCallback(async () => {
+    const { data } = await supabase
+      .from("constraint_round_settings")
+      .select("round_no, is_enabled")
+      .order("round_no", { ascending: true });
+
+    const next: Record<number, boolean> = { 1: true, 2: true, 3: true, 4: true, 5: true };
+    for (const row of ((data ?? []) as ConstraintRoundSetting[])) {
+      next[row.round_no] = row.is_enabled;
+    }
+    setRoundSettings(next);
+  }, []);
+
+  useEffect(() => {
+    loadItems();
+    loadRoundSettings();
+  }, [loadItems, loadRoundSettings]);
+
+  async function handleToggleRound(round: number) {
+    const next = !roundSettings[round];
+    setRoundSettings((prev) => ({ ...prev, [round]: next }));
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase.from("constraint_round_settings").upsert({
+      round_no: round,
+      is_enabled: next,
+      updated_by: u.user?.id ?? null,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      setRoundSettings((prev) => ({ ...prev, [round]: !next }));
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+    setMsg({ type: "ok", text: `Round ${round} ${next ? "enabled" : "disabled"}.` });
+  }
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    const cleanDomain = domain.trim();
+    const cleanTitle = title.trim();
+    const cleanConstraint = constraintText.trim();
+
+    if (!cleanDomain || !cleanTitle || !cleanConstraint) {
+      setMsg({ type: "err", text: "Domain, title and constraint are required." });
+      return;
+    }
+
+    setSaving(true);
+    setMsg(null);
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase.from("domain_constraints").insert({
+      domain: cleanDomain,
+      round_no: roundNo,
+      title: cleanTitle,
+      constraint_text: cleanConstraint,
+      created_by: u.user?.id ?? null,
+    });
+    setSaving(false);
+
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+
+    setDomain("");
+    setRoundNo(1);
+    setTitle("");
+    setConstraintText("");
+    setMsg({ type: "ok", text: "Constraint added." });
+    await loadItems();
+  }
+
+  async function handleDelete(id: string, itemTitle: string) {
+    if (!confirm(`Delete constraint \"${itemTitle}\"?`)) return;
+    const { error } = await supabase.from("domain_constraints").delete().eq("id", id);
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+    setMsg({ type: "ok", text: "Constraint deleted." });
+    await loadItems();
+  }
+
+  const domainOptions = Array.from(new Set(items.map((it) => it.domain))).sort((a, b) => a.localeCompare(b));
+  const visibleItems = filterDomain === "all" ? items : items.filter((it) => it.domain === filterDomain);
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <p className="text-sm font-semibold mb-3" style={{ color: T.text }}>Enable Rounds For Constraint Visibility</p>
+        <p className="text-xs mb-3" style={{ color: T.muted }}>Only enabled rounds will be shown in leader/member overview.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+          {[1, 2, 3, 4, 5].map((round) => {
+            const enabled = Boolean(roundSettings[round]);
+            return (
+              <button
+                key={round}
+                onClick={() => handleToggleRound(round)}
+                className="rounded-md border px-3 py-2 text-left transition-colors"
+                style={enabled
+                  ? { borderColor: `${T.green}88`, background: `${T.green}18`, color: T.text }
+                  : { borderColor: `${T.border}`, background: T.bg, color: T.muted }}
+              >
+                <p className="text-[10px] uppercase tracking-widest">Round {round}</p>
+                <p className="text-lg font-bold" style={{ color: T.yellow }}>x{ROUND_WEIGHTAGE[round]}</p>
+                <p className="text-[10px] mt-1">{enabled ? "Enabled" : "Disabled"}</p>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card>
+        <p className="text-sm font-semibold mb-3" style={{ color: T.text }}>Add Constraint</p>
+        <form onSubmit={handleAdd} className="space-y-3">
+          <div>
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Domain</label>
+            <input value={domain} onChange={(e) => setDomain(e.target.value)} className={inputCls} style={inputStyle}
+              placeholder="e.g. Cloud Architecture" onFocus={e => (e.target.style.borderColor = T.blue)} onBlur={e => (e.target.style.borderColor = T.border)} />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Round</label>
+            <select
+              value={roundNo}
+              onChange={(e) => setRoundNo(Number(e.target.value))}
+              className="w-full px-3 py-1.5 rounded-md text-sm outline-none"
+              style={inputStyle}
+            >
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>Round {n} (x{ROUND_WEIGHTAGE[n]})</option>
+              ))}
+            </select>
+            <p className="text-[10px] mt-1" style={{ color: T.muted }}>Weightage for selected round: x{ROUND_WEIGHTAGE[roundNo]}</p>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Title</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} style={inputStyle}
+              placeholder="Constraint title" onFocus={e => (e.target.style.borderColor = T.blue)} onBlur={e => (e.target.style.borderColor = T.border)} />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Constraint</label>
+            <textarea value={constraintText} onChange={(e) => setConstraintText(e.target.value)} rows={6}
+              className={`${inputCls} resize-y`} style={inputStyle}
+              placeholder="Add domain-specific constraints..." onFocus={e => (e.target.style.borderColor = T.blue)} onBlur={e => (e.target.style.borderColor = T.border)} />
+          </div>
+          {msg && <p className="text-xs" style={{ color: msg.type === "ok" ? T.green : T.red }}>{msg.text}</p>}
+          <button type="submit" disabled={saving} className="px-3 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-60" style={{ background: T.green }}>
+            {saving ? "Saving…" : "Add Constraint"}
+          </button>
+        </form>
+      </Card>
+
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-semibold" style={{ color: T.text }}>Domain Constraints</p>
+          <div className="flex items-center gap-2">
+            <select value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)} className="px-2.5 py-1.5 rounded-md text-xs outline-none" style={{ ...inputStyle, width: 180 }}>
+              <option value="all">All domains</option>
+              {domainOptions.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            <button onClick={loadItems} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs" style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}>
+              <IconRefresh /> Refresh
+            </button>
+          </div>
+        </div>
+        {visibleItems.length === 0 ? (
+          <p className="text-sm" style={{ color: T.muted }}>No constraints found for this domain.</p>
+        ) : (
+          <div className="space-y-3">
+            {visibleItems.map((it) => (
+              <div key={it.id} className="rounded-md border p-3" style={{ borderColor: T.border, background: T.bg }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: T.text }}>{it.title}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: T.blue }}>Domain: {it.domain}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: T.yellow }}>Round {it.round_no} (x{ROUND_WEIGHTAGE[it.round_no] ?? 1})</p>
+                  </div>
+                  <button onClick={() => handleDelete(it.id, it.title)} className="p-1.5 rounded" style={{ background: "rgba(218,54,51,0.1)", color: T.red }}>
+                    <IconTrash />
+                  </button>
+                </div>
+                <p className="text-xs mt-2 whitespace-pre-wrap" style={{ color: T.muted }}>{it.constraint_text}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 function SettingsSection({ user }: { user: User }) {
@@ -606,6 +1820,7 @@ export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [stats, setStats] = useState<Stats>({ teams: 0, members: 0, attendance: 0, registrations: 0 });
+  const [hackathon, setHackathon] = useState<HackathonConfig>({ id: 1, starts_at: new Date().toISOString(), duration_minutes: 24 * 60, is_running: false });
 
   const loadData = useCallback(async () => {
     const [teamsRes, membersRes, attendanceRes, regRes] = await Promise.all([
@@ -623,14 +1838,27 @@ export default function AdminDashboard() {
     });
   }, []);
 
+  const loadHackathon = useCallback(async () => {
+    const { data } = await supabase
+      .from("hackathon_config")
+      .select("id, starts_at, duration_minutes, is_running")
+      .eq("id", 1)
+      .maybeSingle();
+    if (data) {
+      setHackathon(data as HackathonConfig);
+    }
+  }, []);
+
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace("/admin"); return; }
       const { data: check } = await supabase.from("admin_users").select("id").eq("user_id", user.id).maybeSingle();
       if (!check) { await supabase.auth.signOut(); router.replace("/admin"); return; }
-      setUser(user); loadData();
+      setUser(user);
+      loadData();
+      loadHackathon();
     });
-  }, [router, loadData]);
+  }, [router, loadData, loadHackathon]);
 
   async function handleLogout() { await supabase.auth.signOut(); router.replace("/admin"); }
 
@@ -646,6 +1874,9 @@ export default function AdminDashboard() {
     { id: "users" as AdminNav, label: "Users", icon: <IconTable /> },
     { id: "access" as AdminNav, label: "Access", icon: <IconShield /> },
     { id: "database" as AdminNav, label: "Database", icon: <IconDatabase /> },
+    { id: "problems" as AdminNav, label: "Problem Statements", icon: <IconDoc /> },
+    { id: "constraints" as AdminNav, label: "Constraints", icon: <IconLock /> },
+    { id: "betting" as AdminNav, label: "Betting", icon: <IconPlay /> },
     { id: "settings" as AdminNav, label: "Settings", icon: <IconSettings /> },
   ];
 
@@ -653,8 +1884,11 @@ export default function AdminDashboard() {
     overview: "Stats & top teams",
     teams: "View and edit all teams",
     users: "All participants — export to CSV / Excel",
-    access: "Manage core / admin / judge users",
+    access: "Manage coordinator / admin / judge users",
     database: "Upload and manage participant registrations",
+    problems: "Create and manage selectable problem statements",
+    constraints: "Create and manage domain-specific constraints",
+    betting: "Run round phases, scores and weighted settlement",
     settings: "Account & password",
   };
 
@@ -707,11 +1941,19 @@ export default function AdminDashboard() {
         </header>
 
         <div className="flex-1 p-5 sm:p-7 max-w-5xl w-full">
-          {nav === "overview" && <Overview stats={stats} teams={teams} />}
+          {nav === "overview" && (
+            <div className="space-y-5">
+              <HackathonControlCard config={hackathon} user={user} onUpdated={loadHackathon} />
+              <Overview stats={stats} teams={teams} />
+            </div>
+          )}
           {nav === "teams" && <TeamsSection teams={teams} onRefresh={loadData} />}
           {nav === "users" && <UsersSection />}
           {nav === "access" && <AccessSection />}
           {nav === "database" && <DatabaseSection />}
+          {nav === "problems" && <ProblemStatementsSection />}
+          {nav === "constraints" && <ConstraintsSection />}
+          {nav === "betting" && <BettingSection />}
           {nav === "settings" && <SettingsSection user={user} />}
         </div>
       </main>

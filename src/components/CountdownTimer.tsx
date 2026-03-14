@@ -42,14 +42,14 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
     <div className="flex flex-col items-center gap-2">
       <div className="countdown-digit relative bg-bg-surface border border-gold/20 rounded-lg sm:rounded-xl px-3 py-3 sm:px-5 sm:py-4 min-w-[60px] sm:min-w-[90px] shadow-[inset_0_0_20px_rgba(212,160,23,0.05),0_0_15px_rgba(212,160,23,0.1)] hover:shadow-[inset_0_0_30px_rgba(212,160,23,0.1),0_0_25px_rgba(212,160,23,0.2)] transition-shadow duration-500">
         <span
-          className={`font-[family-name:var(--font-jetbrains)] text-3xl sm:text-5xl lg:text-6xl font-bold text-gold-glow block text-center ${
+          className={`font-[family-name:var(--font-space-grotesk)] text-3xl sm:text-5xl lg:text-6xl font-bold text-gold-glow block text-center ${
             flipping ? "digit-flip" : ""
           }`}
         >
           {display}
         </span>
       </div>
-      <span className="font-[family-name:var(--font-syne)] text-[10px] sm:text-xs text-text-muted uppercase tracking-[0.25em]">
+      <span className="font-[family-name:var(--font-space-grotesk)] text-[10px] sm:text-xs text-text-muted uppercase tracking-[0.25em]">
         {label}
       </span>
     </div>

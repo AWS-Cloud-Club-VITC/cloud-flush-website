@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { adminSupabase as supabase } from "@/lib/supabase";
 
 const ACCENT = "#58a6ff";
 const BTN_BG = "#1f6feb";
@@ -159,7 +159,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="text-center mt-4 text-xs">
-          <a href="/core" className="hover:underline" style={{ color: "#8b949e" }}>Core Login</a>
+          <a href="/coordinator" className="hover:underline" style={{ color: "#8b949e" }}>Coordinator Login</a>
           {" · "}
           <a href="/judge" className="hover:underline" style={{ color: "#8b949e" }}>Judge Login</a>
         </p>

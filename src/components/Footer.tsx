@@ -57,11 +57,11 @@ export default function Footer() {
     <footer
       ref={footerRef}
       id="contact"
-      className="relative py-16 sm:py-24 px-4 bg-bg-surface/50 border-t border-gold/10"
+      className="relative py-16 sm:py-24 px-4 border-t border-gold/10"
     >
       <div className="max-w-4xl mx-auto text-center">
         <h3
-          className={`font-[family-name:var(--font-cinzel)] text-xl sm:text-2xl lg:text-3xl font-bold text-text-primary mb-8 transition-all duration-700 ${
+          className={`font-[family-name:var(--font-space-grotesk)] text-xl sm:text-2xl lg:text-3xl font-bold text-text-primary mb-8 transition-all duration-700 ${
             inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
@@ -83,7 +83,7 @@ export default function Footer() {
               rel="noopener noreferrer"
               className="social-icon group flex flex-col items-center gap-3"
             >
-              <div className="relative p-4 rounded-2xl bg-bg-surface border border-gold/20 group-hover:border-gold/60 group-hover:bg-gold/5 transition-all duration-300">
+              <div className="relative p-4 rounded-2xl bg-transparent border border-gold/20 group-hover:border-gold/60 group-hover:bg-gold/5 transition-all duration-300">
                 <div className="text-gold/70 group-hover:text-gold transition-colors duration-300">
                   {link.icon}
                 </div>
@@ -93,7 +93,7 @@ export default function Footer() {
                   }}
                 />
               </div>
-              <span className="font-[family-name:var(--font-syne)] text-xs sm:text-sm text-text-muted group-hover:text-gold transition-colors duration-300 tracking-wider">
+              <span className="font-[family-name:var(--font-space-grotesk)] text-xs sm:text-sm text-text-muted group-hover:text-gold transition-colors duration-300 tracking-wider">
                 {link.name}
               </span>
             </a>
@@ -103,7 +103,7 @@ export default function Footer() {
         <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-gold/30 to-transparent mx-auto mb-6" />
 
         <p
-          className={`font-[family-name:var(--font-syne)] text-xs sm:text-sm text-text-muted/60 transition-all duration-700 delay-400 ${
+          className={`font-[family-name:var(--font-space-grotesk)] text-xs sm:text-sm text-text-muted/60 transition-all duration-700 delay-400 ${
             inView ? "opacity-100" : "opacity-0"
           }`}
         >

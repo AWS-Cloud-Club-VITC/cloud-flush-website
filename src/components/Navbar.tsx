@@ -47,7 +47,7 @@ export default function Navbar() {
               </div>
             </div>
             <div className="hidden sm:flex flex-col">
-              <span className="font-[family-name:var(--font-cinzel)] text-sm font-bold text-text-primary tracking-wider group-hover:text-gold-light transition-colors duration-300">
+              <span className="font-[family-name:var(--font-space-grotesk)] text-sm font-bold text-text-primary tracking-wider group-hover:text-gold-light transition-colors duration-300">
                 AWS Cloud Club
               </span>
               <span className="text-[10px] text-text-muted tracking-[0.2em] uppercase">
@@ -66,7 +66,7 @@ export default function Navbar() {
             </button>
             <button
               onClick={() => setModalMode("login")}
-              className="gold-shimmer-btn relative px-5 py-2 sm:px-6 sm:py-2.5 rounded-full border border-gold/60 text-gold font-[family-name:var(--font-syne)] font-semibold text-sm tracking-wider hover:bg-gold/10 hover:border-gold transition-all duration-300 hover:shadow-[0_0_20px_rgba(212,160,23,0.2)]"
+              className="gold-shimmer-btn relative px-5 py-2 sm:px-6 sm:py-2.5 rounded-full border border-gold/60 text-gold font-[family-name:var(--font-space-grotesk)] font-semibold text-sm tracking-wider hover:bg-gold/10 hover:border-gold transition-all duration-300 hover:shadow-[0_0_20px_rgba(212,160,23,0.2)]"
             >
               Login
             </button>

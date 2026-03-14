@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { coordinatorSupabase as supabase } from "@/lib/supabase";
 
 const ACCENT = "#58a6ff";
 const BTN_BG = "#238636";
@@ -25,12 +25,15 @@ export default function CoreLoginPage() {
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
-      const { data: coreCheck } = await supabase.from("core_users").select("id").maybeSingle();
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) throw new Error("Unable to validate account.");
+      const { data: coreCheck } = await supabase.from("core_users").select("id").eq("user_id", userId).maybeSingle();
       if (!coreCheck) {
         await supabase.auth.signOut();
-        throw new Error("Access denied. You are not a core team member.");
+        throw new Error("Access denied. You are not a coordinator.");
       }
-      router.push("/core/dashboard");
+      router.push("/coordinator/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed.");
     } finally {
@@ -59,7 +62,7 @@ export default function CoreLoginPage() {
           <h1 className="text-white font-bold text-2xl tracking-widest" style={{ fontFamily: "monospace" }}>
             CLOUD-FLUSH
           </h1>
-          <p className="text-sm mt-1" style={{ color: "#8b949e" }}>Core Team Portal</p>
+          <p className="text-sm mt-1" style={{ color: "#8b949e" }}>Coordinator Portal</p>
         </div>
 
         <div className="rounded-xl border p-6 space-y-4" style={{ background: "#161b22", borderColor: "#30363d" }}>
@@ -72,7 +75,7 @@ export default function CoreLoginPage() {
                   <input
                     type="email" required value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="core@example.com"
+                    placeholder="coordinator@example.com"
                     className="w-full px-3 py-2 rounded-md text-sm outline-none transition-colors"
                     style={inputStyle}
                     onFocus={(e) => (e.target.style.borderColor = ACCENT)}
@@ -134,7 +137,7 @@ export default function CoreLoginPage() {
                   <input
                     type="email" required value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="core@example.com"
+                    placeholder="coordinator@example.com"
                     className="w-full px-3 py-2 rounded-md text-sm outline-none transition-colors"
                     style={inputStyle}
                     onFocus={(e) => (e.target.style.borderColor = ACCENT)}
