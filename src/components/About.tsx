@@ -20,9 +20,9 @@ const stats = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
       </svg>
     ),
-    value: "Venue",
+    value: "400+",
     unit: "",
-    label: "Nethaji Auditorium",
+    label: "Expected Builders",
   },
   {
     icon: (
@@ -30,7 +30,7 @@ const stats = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.023 6.023 0 01-7.54 0" />
       </svg>
     ),
-    value: "₹50K",
+    value: "₹50K+",
     unit: "",
     label: "Prize Pool",
   },
@@ -59,7 +59,7 @@ export default function About() {
     >
       <div className="max-w-7xl mx-auto">
         <h2
-          className={`font-[family-name:var(--font-space-grotesk)] text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary section-heading text-center mx-auto mb-16 transition-all duration-700 ${
+          className={`font-(family-name:--font-space-grotesk) text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary section-heading text-center mx-auto mb-16 transition-all duration-700 ${
             inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
@@ -76,14 +76,14 @@ export default function About() {
           >
               <div className="mx-auto w-full max-w-md rounded-3xl border border-gold/15 bg-black/20 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.4)] backdrop-blur-sm">
                 <Image
-                  src="/about.png"
+                  src="/home-page/about.png"
                   alt="Team seated around a strategy table"
                   width={640}
                   height={640}
                   className="h-auto w-full rounded-2xl object-contain"
                   priority
                 />
-                <p className="mt-3 text-center text-[11px] text-text-muted/70">
+                <p className="sr-only" aria-label="Image attribution">
                   Image source:{" "}
                   <a
                     href="https://pikbest.com/png-images/group-of-people-sitting-around-a-table-3d-cartoon_11707168.html"
@@ -104,26 +104,26 @@ export default function About() {
                 : "opacity-0 translate-x-8"
             }`}
           >
-            <div className="space-y-5 font-[family-name:var(--font-space-grotesk)] text-text-primary/80 text-base sm:text-lg leading-relaxed">
+            <div className="space-y-5 font-(family-name:--font-space-grotesk) text-text-primary/80 text-base sm:text-lg leading-relaxed">
               <p>
                 <span className="text-gold font-semibold">Cloud-Flush</span> is
-                the flagship hackathon of AWS Cloud Club VIT Chennai — a
-                high-octane, 24-hour sprint where developers, designers, and
-                dreamers collide to build the future on the cloud.
+                the flagship 24-hour build sprint by AWS Cloud Club VIT Chennai,
+                designed for students who want to ship real cloud-native
+                products under pressure.
               </p>
               <p>
-                Whether you&apos;re deploying serverless architectures, training
-                ML models on SageMaker, or crafting full-stack applications with
-                AWS Amplify — this is your arena to innovate, break limits, and
-                ship real products.
+                Teams move from idea to deployment in a single day, with support
+                from mentors, technical checkpoints, and practical product
+                feedback. It is not just another PPT event; your final score
+                depends on what runs.
               </p>
               <p>
-                Expect world-class mentors, cutting-edge workshops, and the
-                thrill of competing for prizes worth ₹20,000. No gatekeeping
-                — just pure, raw engineering passion.
+                This edition also includes a live strategy layer through the
+                internal betting board, where performance and decision-making
+                meet in real time for leaders and members.
               </p>
               <p className="text-gold/80 italic font-medium">
-                Build it. Deploy it. Flush the competition.
+                Build fast. Deploy smart. Outlast the clock.
               </p>
             </div>
           </div>
@@ -140,12 +140,12 @@ export default function About() {
               }`}
               style={{ transitionDelay: `${600 + i * 150}ms` }}
             >
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-gold to-transparent opacity-60 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-linear-to-r from-transparent via-gold to-transparent opacity-60 group-hover:opacity-100 transition-opacity" />
 
               <div className="flex justify-center mb-4 text-gold/70 group-hover:text-gold transition-colors">
                 {stat.icon}
               </div>
-              <div className="font-[family-name:var(--font-space-grotesk)] text-3xl sm:text-4xl font-bold text-gold-glow counter-glow">
+              <div className="font-(family-name:--font-space-grotesk) text-3xl sm:text-4xl font-bold text-gold-glow counter-glow">
                 {stat.value}
                 {stat.unit && (
                   <span className="text-lg sm:text-xl ml-1 text-text-muted">
@@ -153,7 +153,7 @@ export default function About() {
                   </span>
                 )}
               </div>
-              <p className="mt-2 font-[family-name:var(--font-space-grotesk)] text-sm text-text-muted">
+              <p className="mt-2 font-(family-name:--font-space-grotesk) text-sm text-text-muted">
                 {stat.label}
               </p>
             </div>

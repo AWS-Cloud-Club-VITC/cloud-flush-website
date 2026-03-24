@@ -1,6 +1,7 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import About from "@/components/About";
+import HackathonFeatures from "@/components/HackathonFeatures";
 import Timeline from "@/components/Timeline";
 import FAQ from "@/components/FAQ";
 import Sponsors from "@/components/Sponsors";
@@ -17,6 +18,7 @@ export default function Home() {
       <Navbar />
       <Hero />
       <About />
+      <HackathonFeatures />
       <Timeline />
       <FAQ />
       <Sponsors />

@@ -7,7 +7,7 @@ const sponsors = [
   {
     name: "Institution of Engineers (India) - VIT Chennai Chapter",
     tier: "Gold",
-    logoSrc: "/ie-logo.png",
+    logoSrc: "/home-page/ie-logo.png",
   },
 ];
 

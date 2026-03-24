@@ -6,7 +6,7 @@ import { adminSupabase as supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 
-type AdminNav = "overview" | "teams" | "users" | "access" | "database" | "problems" | "constraints" | "betting" | "settings";
+type AdminNav = "overview" | "teams" | "users" | "access" | "database" | "problems" | "constraints" | "betting" | "updates" | "settings";
 type AccessTab = "core" | "admin" | "judge";
 type TeamRow = { id: string; team_name: string; leader_id: string; points: number; is_vit_chennai: boolean; created_at: string };
 type RoleUser = { id: string; user_id: string; email: string | null; name?: string | null; created_at?: string | null };
@@ -29,7 +29,7 @@ type BettingRoundBet = {
   id: string;
   team_id: string;
   initial_bet: number;
-  second_decision: "hold" | "double" | "withdraw" | null;
+  second_decision: "hold" | "match" | "double" | "withdraw" | null;
   final_bet: number | null;
   decision_locked: boolean;
   teams: { team_name: string; points: number } | null;
@@ -44,6 +44,7 @@ type BettingRoundResult = {
   payout: number;
   teams: { team_name: string } | null;
 };
+type DashboardUpdate = { id: string; title: string; body: string; created_at: string };
 
 const ROUND_WEIGHTAGE: Record<number, number> = {
   1: 1,
@@ -72,6 +73,7 @@ function IconRefresh() { return <svg width="14" height="14" fill="none" viewBox=
 function IconEdit() { return <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>; }
 function IconPlay() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><polygon points="5 3 19 12 5 21 5 3"/></svg>; }
 function IconCoins() { return <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v5c0 1.66 3.13 3 7 3s7-1.34 7-3V6"/><path d="M5 11v5c0 1.66 3.13 3 7 3s7-1.34 7-3v-5"/></svg>; }
+function IconBell() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"/><path d="M10 17a2 2 0 0 0 4 0"/></svg>; }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
@@ -80,7 +82,7 @@ function BettingSection() {
   const [roundNo, setRoundNo] = useState(1);
   const [loading, setLoading] = useState(true);
   const [savingControl, setSavingControl] = useState(false);
-  const [runningAction, setRunningAction] = useState<"timeout" | "settle" | null>(null);
+  const [runningAction, setRunningAction] = useState<"settle" | "reset-all" | null>(null);
   const [control, setControl] = useState<BettingRoundControl | null>(null);
   const [bets, setBets] = useState<BettingRoundBet[]>([]);
   const [evaluations, setEvaluations] = useState<Record<string, { score: string; notes: string }>>({});
@@ -204,25 +206,6 @@ function BettingSection() {
     await loadRound();
   }
 
-  async function applyTimeoutHold() {
-    if (!control || control.phase !== "decision") {
-      setMsg({ type: "err", text: "Timeout hold can be applied only in decision phase." });
-      return;
-    }
-    const confirmed = confirm(`Apply timeout hold for round ${roundNo}? This will lock all pending teams as HOLD.`);
-    if (!confirmed) return;
-    setRunningAction("timeout");
-    setMsg(null);
-    const { error } = await supabase.rpc("apply_hold_timeouts", { p_round_no: roundNo });
-    setRunningAction(null);
-    if (error) {
-      setMsg({ type: "err", text: error.message });
-      return;
-    }
-    setMsg({ type: "ok", text: "Pending decisions defaulted to Hold." });
-    await loadRound();
-  }
-
   async function settleRound() {
     const confirmed = confirm(`Settle round ${roundNo}? This applies weighted payout by final bet among winners.`);
     if (!confirmed) return;
@@ -235,6 +218,24 @@ function BettingSection() {
       return;
     }
     setMsg({ type: "ok", text: "Round settled successfully." });
+    await loadRound();
+  }
+
+  async function resetAllRounds() {
+    const confirmed = confirm("Reset ALL betting rounds? This will clear all bets, evaluations, results, and reset team points to 1000.");
+    if (!confirmed) return;
+
+    setRunningAction("reset-all");
+    setMsg(null);
+    const { error } = await supabase.rpc("reset_all_betting_rounds");
+    setRunningAction(null);
+
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+
+    setMsg({ type: "ok", text: "All betting rounds reset successfully." });
     await loadRound();
   }
 
@@ -262,6 +263,17 @@ function BettingSection() {
                 <button onClick={loadRound} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs" style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}>
                   <IconRefresh /> Refresh
                 </button>
+                <button
+                  type="button"
+                  onClick={() => control && setControl({ ...control, show_betting_leaderboard: !control.show_betting_leaderboard })}
+                  disabled={!control}
+                  className="px-3 py-1.5 rounded-md text-xs font-semibold disabled:opacity-50"
+                  style={control?.show_betting_leaderboard
+                    ? { background: `${T.green}22`, color: T.green, border: `1px solid ${T.green}55` }
+                    : { background: `${T.yellow}22`, color: T.yellow, border: `1px solid ${T.yellow}55` }}
+                >
+                  {control?.show_betting_leaderboard ? "Pot/Board: Visible" : "Pot/Board: Hidden"}
+                </button>
               </div>
             </div>
           </div>
@@ -285,7 +297,7 @@ function BettingSection() {
         {loading || !control ? (
           <p className="text-sm" style={{ color: T.muted }}>Loading round controls…</p>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Phase</label>
               <select
@@ -319,19 +331,6 @@ function BettingSection() {
                 style={inputStyle}
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Leaderboard Visibility</label>
-              <button
-                type="button"
-                onClick={() => setControl({ ...control, show_betting_leaderboard: !control.show_betting_leaderboard })}
-                className="w-full px-3 py-2 rounded-md text-xs font-semibold"
-                style={control.show_betting_leaderboard
-                  ? { background: `${T.green}22`, color: T.green, border: `1px solid ${T.green}55` }
-                  : { background: `${T.yellow}22`, color: T.yellow, border: `1px solid ${T.yellow}55` }}
-              >
-                {control.show_betting_leaderboard ? "Visible to Leaders" : "Hidden from Leaders"}
-              </button>
-            </div>
             <div className="flex items-end">
               <button
                 onClick={saveControl}
@@ -347,20 +346,20 @@ function BettingSection() {
 
         <div className="flex flex-wrap items-center gap-2 mt-4">
           <button
-            onClick={applyTimeoutHold}
-            disabled={runningAction !== null}
-            className="px-3 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-60"
-            style={{ background: T.yellow }}
-          >
-            {runningAction === "timeout" ? "Applying…" : "Apply Timeout → Hold"}
-          </button>
-          <button
             onClick={settleRound}
             disabled={runningAction !== null}
             className="px-3 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-60"
             style={{ background: T.green }}
           >
             {runningAction === "settle" ? "Settling…" : "Settle Round"}
+          </button>
+          <button
+            onClick={resetAllRounds}
+            disabled={runningAction !== null}
+            className="px-3 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-60"
+            style={{ background: T.red }}
+          >
+            {runningAction === "reset-all" ? "Resetting…" : "Reset All Rounds"}
           </button>
         </div>
 
@@ -379,7 +378,7 @@ function BettingSection() {
                   <div>
                     <p className="text-sm font-semibold" style={{ color: T.text }}>{row.teams?.team_name ?? row.team_id}</p>
                     <p className="text-[10px]" style={{ color: T.muted }}>
-                      Initial: {row.initial_bet} · Final: {row.final_bet ?? row.initial_bet} · Decision: {row.second_decision ?? "pending"}
+                      Initial: {row.initial_bet} · Final: {row.final_bet ?? row.initial_bet} · Decision: {row.second_decision === "double" ? "match" : (row.second_decision ?? "pending")}
                     </p>
                   </div>
                   <span className="text-[10px] px-2 py-0.5 rounded" style={row.decision_locked ? { background: `${T.green}20`, color: T.green, border: `1px solid ${T.green}55` } : { background: `${T.yellow}20`, color: T.yellow, border: `1px solid ${T.yellow}55` }}>
@@ -478,7 +477,7 @@ function BettingSection() {
                     <div>
                       <p className="text-sm font-semibold" style={{ color: T.text }}>#{idx + 1} · {row.team_name}</p>
                       <p className="text-[10px]" style={{ color: T.muted }}>
-                        Initial {row.initial_bet} · Final {row.final_bet} · Decision {row.second_decision ?? "pending"}
+                        Initial {row.initial_bet} · Final {row.final_bet} · Decision {row.second_decision === "double" ? "match" : (row.second_decision ?? "pending")}
                       </p>
                     </div>
                     <p className="text-sm font-bold" style={{ color: T.yellow }}>{row.committed} pts</p>
@@ -1550,7 +1549,7 @@ function ProblemStatementsSection() {
 
 function ConstraintsSection() {
   const [items, setItems] = useState<DomainConstraint[]>([]);
-  const [roundSettings, setRoundSettings] = useState<Record<number, boolean>>({ 1: true, 2: true, 3: true, 4: true, 5: true });
+  const [roundSettings, setRoundSettings] = useState<Record<number, boolean>>({ 1: false, 2: false, 3: false, 4: false, 5: false });
   const [domain, setDomain] = useState("");
   const [roundNo, setRoundNo] = useState(1);
   const [title, setTitle] = useState("");
@@ -1574,7 +1573,7 @@ function ConstraintsSection() {
       .select("round_no, is_enabled")
       .order("round_no", { ascending: true });
 
-    const next: Record<number, boolean> = { 1: true, 2: true, 3: true, 4: true, 5: true };
+    const next: Record<number, boolean> = { 1: false, 2: false, 3: false, 4: false, 5: false };
     for (const row of ((data ?? []) as ConstraintRoundSetting[])) {
       next[row.round_no] = row.is_enabled;
     }
@@ -1761,6 +1760,130 @@ function ConstraintsSection() {
   );
 }
 
+function UpdatesSection() {
+  const [items, setItems] = useState<DashboardUpdate[]>([]);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const loadItems = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("dashboard_updates")
+      .select("id, title, body, created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+    setItems((data ?? []) as DashboardUpdate[]);
+  }, []);
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    const cleanTitle = title.trim();
+    const cleanBody = body.trim();
+    if (!cleanTitle || !cleanBody) {
+      setMsg({ type: "err", text: "Title and text are required." });
+      return;
+    }
+
+    setSaving(true);
+    setMsg(null);
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase.from("dashboard_updates").insert({
+      title: cleanTitle,
+      body: cleanBody,
+      created_by: u.user?.id ?? null,
+    });
+    setSaving(false);
+
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+
+    setTitle("");
+    setBody("");
+    setMsg({ type: "ok", text: "Update published." });
+    await loadItems();
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this update?")) return;
+    const { error } = await supabase.from("dashboard_updates").delete().eq("id", id);
+    if (error) {
+      setMsg({ type: "err", text: error.message });
+      return;
+    }
+    setMsg({ type: "ok", text: "Update deleted." });
+    await loadItems();
+  }
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <p className="text-sm font-semibold mb-3" style={{ color: T.text }}>Publish Update</p>
+        <form onSubmit={handleAdd} className="space-y-3">
+          <div>
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Title</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className={inputCls}
+              style={inputStyle}
+              placeholder="Update title"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: T.muted }}>Text</label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              className={`${inputCls} min-h-28 resize-y`}
+              style={inputStyle}
+              placeholder="Write update details"
+            />
+          </div>
+          <button type="submit" disabled={saving} className="px-3 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-60" style={{ background: T.blue }}>
+            {saving ? "Publishing..." : "Publish"}
+          </button>
+        </form>
+        {msg && <p className="text-xs mt-3" style={{ color: msg.type === "ok" ? T.green : T.red }}>{msg.text}</p>}
+      </Card>
+
+      <Card>
+        <p className="text-sm font-semibold mb-3" style={{ color: T.text }}>Published Updates</p>
+        {items.length === 0 ? (
+          <p className="text-sm" style={{ color: T.muted }}>No updates published yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {items.map((item) => (
+              <div key={item.id} className="rounded-md border p-3" style={{ borderColor: T.border, background: T.bg }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: T.text }}>{item.title}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: T.muted }}>{new Date(item.created_at).toLocaleString()}</p>
+                  </div>
+                  <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded" style={{ background: "rgba(218,54,51,0.1)", color: T.red }}>
+                    <IconTrash />
+                  </button>
+                </div>
+                <p className="text-xs mt-2 whitespace-pre-wrap" style={{ color: T.muted }}>{item.body}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 function SettingsSection({ user }: { user: User }) {
@@ -1861,6 +1984,7 @@ export default function AdminDashboard() {
   }, [router, loadData, loadHackathon]);
 
   async function handleLogout() { await supabase.auth.signOut(); router.replace("/admin"); }
+  function handleTopRefresh() { window.location.reload(); }
 
   if (!user) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: T.bg }}>
@@ -1877,6 +2001,7 @@ export default function AdminDashboard() {
     { id: "problems" as AdminNav, label: "Problem Statements", icon: <IconDoc /> },
     { id: "constraints" as AdminNav, label: "Constraints", icon: <IconLock /> },
     { id: "betting" as AdminNav, label: "Betting", icon: <IconPlay /> },
+    { id: "updates" as AdminNav, label: "Updates", icon: <IconBell /> },
     { id: "settings" as AdminNav, label: "Settings", icon: <IconSettings /> },
   ];
 
@@ -1889,6 +2014,7 @@ export default function AdminDashboard() {
     problems: "Create and manage selectable problem statements",
     constraints: "Create and manage domain-specific constraints",
     betting: "Run round phases, scores and weighted settlement",
+    updates: "Publish updates for leader and member dashboards",
     settings: "Account & password",
   };
 
@@ -1937,7 +2063,16 @@ export default function AdminDashboard() {
               <p className="text-[10px]" style={{ color: T.muted }}>{subtitles[nav]}</p>
             </div>
           </div>
-          <span className="text-[10px] font-mono hidden sm:block" style={{ color: T.muted }}>Cloud-Flush Admin</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleTopRefresh}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
+              style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}
+            >
+              <IconRefresh /> Refresh
+            </button>
+            <span className="text-[10px] font-mono hidden sm:block" style={{ color: T.muted }}>Cloud-Flush Admin</span>
+          </div>
         </header>
 
         <div className="flex-1 p-5 sm:p-7 max-w-5xl w-full">
@@ -1954,6 +2089,7 @@ export default function AdminDashboard() {
           {nav === "problems" && <ProblemStatementsSection />}
           {nav === "constraints" && <ConstraintsSection />}
           {nav === "betting" && <BettingSection />}
+          {nav === "updates" && <UpdatesSection />}
           {nav === "settings" && <SettingsSection user={user} />}
         </div>
       </main>

@@ -7,7 +7,7 @@ import { supabase, createEphemeralClient, type Team, type TeamMember } from "@/l
 import type { User } from "@supabase/supabase-js";
 import QRCode from "react-qr-code";
 
-type NavSection = "overview" | "leaderboard" | "problems" | "play" | "team" | "attendance" | "settings";
+type NavSection = "overview" | "leaderboard" | "problems" | "play" | "updates" | "team" | "attendance" | "settings";
 type HackathonConfig = { starts_at: string; duration_minutes: number; is_running: boolean };
 type ProblemStatement = { id: string; domain: string; title: string; statement: string; created_at: string };
 type DomainConstraint = { id: string; domain: string; round_no: number; title: string; constraint_text: string; created_at: string };
@@ -24,7 +24,7 @@ type RoundBet = {
   round_no: number;
   team_id: string;
   initial_bet: number;
-  second_decision: "hold" | "double" | "withdraw" | null;
+  second_decision: "hold" | "match" | "double" | "withdraw" | null;
   final_bet: number | null;
   decision_locked: boolean;
 };
@@ -33,7 +33,7 @@ type RoundBetLeaderboardRow = {
   round_no: number;
   team_id: string;
   initial_bet: number;
-  second_decision: "hold" | "double" | "withdraw" | null;
+  second_decision: "hold" | "match" | "double" | "withdraw" | null;
   final_bet: number | null;
   decision_locked: boolean;
   teams: { team_name: string } | null;
@@ -46,6 +46,12 @@ type RoundResult = {
   final_bet: number;
   is_winner: boolean;
   payout: number;
+};
+type LeaderDashboardUpdate = {
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
 };
 
 const ROUND_WEIGHTAGE: Record<number, number> = {
@@ -67,6 +73,34 @@ function IconSettings() { return <svg width="18" height="18" fill="none" viewBox
 function IconLogout() { return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>; }
 function IconPlus() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>; }
 function IconCoins() { return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v5c0 1.66 3.13 3 7 3s7-1.34 7-3V6"/><path d="M5 11v5c0 1.66 3.13 3 7 3s7-1.34 7-3v-5"/></svg>; }
+function IconBell() { return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"/><path d="M10 17a2 2 0 0 0 4 0"/></svg>; }
+function IconRefresh() { return <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>; }
+
+function UpdatesSection({ updates }: { updates: LeaderDashboardUpdate[] }) {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl p-5 border" style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)" }}>
+        <p className="text-[10px] uppercase tracking-widest text-yellow-400/70 mb-1">Announcements</p>
+        <p className="text-2xl font-black text-white">Updates</p>
+        <p className="text-xs text-white/45 mt-1">Latest messages from admins.</p>
+      </div>
+
+      {updates.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 p-8 text-center text-white/40">No updates yet.</div>
+      ) : (
+        <div className="space-y-3">
+          {updates.map((item) => (
+            <div key={item.id} className="rounded-2xl border p-4" style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)" }}>
+              <p className="text-sm font-semibold text-white">{item.title}</p>
+              <p className="text-[10px] text-white/45 mt-1">{new Date(item.created_at).toLocaleString()}</p>
+              <p className="text-sm text-white/70 mt-3 whitespace-pre-wrap">{item.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Stars ─────────────────────────────────────────────────────────────────────
 function Stars() {
@@ -677,10 +711,11 @@ function PlaySection({
   onRoundAction: () => Promise<void>;
 }) {
   const [placingBet, setPlacingBet] = useState(false);
-  const [decisionLoading, setDecisionLoading] = useState<"hold" | "double" | "withdraw" | null>(null);
+  const [decisionLoading, setDecisionLoading] = useState<"hold" | "match" | "withdraw" | null>(null);
   const [betInput, setBetInput] = useState("100");
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [showConstraintPopup, setShowConstraintPopup] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const activeControl = roundControls.find((r) => r.round_no === activeRound) ?? null;
   const activeConstraint = enabledRounds.includes(activeRound)
@@ -721,7 +756,7 @@ function PlaySection({
     await onRoundAction();
   }
 
-  async function submitDecision(decision: "hold" | "double" | "withdraw") {
+  async function submitDecision(decision: "hold" | "match" | "withdraw") {
     setDecisionLoading(decision);
     setMsg(null);
     const { error } = await supabase.rpc("submit_second_decision", {
@@ -735,6 +770,12 @@ function PlaySection({
     }
     setMsg({ type: "ok", text: "Second decision submitted and locked." });
     await onRoundAction();
+  }
+
+  async function refreshPlayData() {
+    setRefreshing(true);
+    await onRoundAction();
+    setRefreshing(false);
   }
 
   return (
@@ -765,23 +806,29 @@ function PlaySection({
         </button>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 h-full">
-          <div className="rounded-2xl border p-4 flex flex-col justify-between h-full" style={{ borderColor: "rgba(212,160,23,0.35)", background: "linear-gradient(135deg, rgba(212,160,23,0.14) 0%, rgba(8,8,8,0.52) 100%)" }}>
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-yellow-400/70">Prize Pot</p>
-              <div className="mt-2 flex items-center gap-3">
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border" style={{ borderColor: "rgba(212,160,23,0.35)", background: "rgba(0,0,0,0.22)" }}>
-                  <Image src="/prize.png" alt="Prize pot" fill className="object-cover" />
-                </div>
-                <div>
-                  <p className="text-[11px] text-white/60">Current Pot</p>
-                  <p className="text-3xl font-black text-yellow-400">{potPoints.toLocaleString()} pts</p>
+          {showRoundLeaderboard ? (
+            <div className="rounded-2xl border p-4 flex flex-col justify-between h-full" style={{ borderColor: "rgba(212,160,23,0.35)", background: "linear-gradient(135deg, rgba(212,160,23,0.14) 0%, rgba(8,8,8,0.52) 100%)" }}>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-yellow-400/70">Prize Pot</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border" style={{ borderColor: "rgba(212,160,23,0.35)", background: "rgba(0,0,0,0.22)" }}>
+                    <Image src="/student/prize.png" alt="Prize pot" fill className="object-cover" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-white/60">Current Pot</p>
+                    <p className="text-3xl font-black text-yellow-400">{potPoints.toLocaleString()} pts</p>
+                  </div>
                 </div>
               </div>
+              <p className="text-xs text-white/55 mt-3">
+                Pot = total committed stake this round.
+              </p>
             </div>
-            <p className="text-xs text-white/55 mt-3">
-              Pot = total committed stake this round.
-            </p>
-          </div>
+          ) : (
+            <div className="rounded-2xl border p-4 flex flex-col justify-center h-full" style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)" }}>
+              <p className="text-sm text-white/70">Pot value is hidden by admin for this round.</p>
+            </div>
+          )}
 
           <div className="rounded-2xl border p-4 flex flex-col justify-between h-full" style={{ borderColor: "rgba(88,166,255,0.32)", background: "linear-gradient(135deg, rgba(88,166,255,0.16) 0%, rgba(8,8,8,0.52) 100%)" }}>
             <div>
@@ -831,9 +878,14 @@ function PlaySection({
               <p className="text-xl font-black text-white">Round {activeRound}</p>
               <p className="text-xs text-white/45 mt-1">Weighted payout mode: winners share pot proportional to their final bet.</p>
             </div>
-            <span className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background: "rgba(88,166,255,0.16)", color: "#58a6ff", border: "1px solid rgba(88,166,255,0.35)" }}>
-              Phase: {activeControl?.phase ?? "setup"}
-            </span>
+            <button
+              onClick={refreshPlayData}
+              disabled={refreshing}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-black disabled:opacity-60"
+              style={{ background: "#D4A017" }}
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
           </div>
 
           {!selectedProblem && (
@@ -867,17 +919,17 @@ function PlaySection({
             {myRoundBet && (
               <div className="rounded-xl border p-4" style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.03)" }}>
                 <p className="text-sm text-white">Initial: <span className="text-yellow-400 font-bold">{myRoundBet.initial_bet}</span> · Final: <span className="text-green-400 font-bold">{myRoundBet.final_bet ?? myRoundBet.initial_bet}</span></p>
-                <p className="text-xs text-white/45 mt-1">Decision: {myRoundBet.second_decision ?? "pending"}</p>
+                <p className="text-xs text-white/45 mt-1">Decision: {myRoundBet.second_decision === "double" ? "match" : (myRoundBet.second_decision ?? "pending")}</p>
 
                 {activeControl.phase === "decision" && !myRoundBet.decision_locked && (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {(["hold", "double", "withdraw"] as const).map((decision) => (
+                    {(["hold", "match", "withdraw"] as const).map((decision) => (
                       <button
                         key={decision}
                         onClick={() => submitDecision(decision)}
                         disabled={decisionLoading !== null}
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60 capitalize"
-                        style={decision === "withdraw" ? { background: "rgba(218,54,51,0.8)" } : decision === "double" ? { background: "rgba(88,166,255,0.8)" } : { background: "rgba(52,211,153,0.8)" }}
+                        style={decision === "withdraw" ? { background: "rgba(218,54,51,0.8)" } : decision === "match" ? { background: "rgba(88,166,255,0.8)" } : { background: "rgba(52,211,153,0.8)" }}
                       >
                         {decisionLoading === decision ? "Submitting…" : decision}
                       </button>
@@ -929,7 +981,7 @@ function PlaySection({
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm text-white font-semibold truncate">#{idx + 1} {row.teams?.team_name ?? "Team"}{row.team_id === teamId ? " (You)" : ""}</p>
-                    <p className="text-xs text-white/55">{row.second_decision ?? "pending"}</p>
+                    <p className="text-xs text-white/55">{row.second_decision === "double" ? "match" : (row.second_decision ?? "pending")}</p>
                   </div>
                   <p className="text-xs text-white/65 mt-1">Initial: {row.initial_bet} · Final: {row.final_bet ?? row.initial_bet}</p>
                 </div>
@@ -956,12 +1008,15 @@ export default function LeaderDashboard() {
   const [statements, setStatements] = useState<ProblemStatement[]>([]);
   const [selectedProblem, setSelectedProblem] = useState<ProblemStatement | null>(null);
   const [constraints, setConstraints] = useState<DomainConstraint[]>([]);
-  const [enabledRounds, setEnabledRounds] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [enabledRounds, setEnabledRounds] = useState<number[]>([]);
   const [roundControls, setRoundControls] = useState<BettingRoundControl[]>([]);
   const [activeRound, setActiveRound] = useState<number>(1);
   const [myRoundBet, setMyRoundBet] = useState<RoundBet | null>(null);
   const [myRoundResult, setMyRoundResult] = useState<RoundResult | null>(null);
   const [roundLeaderboardBets, setRoundLeaderboardBets] = useState<RoundBetLeaderboardRow[]>([]);
+  const [updates, setUpdates] = useState<LeaderDashboardUpdate[]>([]);
+  const [showUpdatesPreview, setShowUpdatesPreview] = useState(false);
+  const [updatesSeenAt, setUpdatesSeenAt] = useState<string | null>(null);
   const lastFiveShownRef = useRef(false);
 
   const fetchTeamData = useCallback(async (userId: string) => {
@@ -993,12 +1048,12 @@ export default function LeaderDashboard() {
         setConstraints((list ?? []) as DomainConstraint[]);
       } else {
         setConstraints([]);
-        setEnabledRounds([1, 2, 3, 4, 5]);
+        setEnabledRounds([]);
       }
     } else {
       setSelectedProblem(null);
       setConstraints([]);
-      setEnabledRounds([1, 2, 3, 4, 5]);
+      setEnabledRounds([]);
     }
     if (teamData) {
       const { data: memberData } = await supabase.from("team_members").select("*").eq("team_id", teamData.id).order("created_at");
@@ -1060,6 +1115,24 @@ export default function LeaderDashboard() {
     setRoundLeaderboardBets((allBets ?? []) as unknown as RoundBetLeaderboardRow[]);
   }, [team?.id]);
 
+  const loadUpdates = useCallback(async () => {
+    const { data } = await supabase
+      .from("dashboard_updates")
+      .select("id, title, body, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5);
+    setUpdates((data ?? []) as LeaderDashboardUpdate[]);
+  }, []);
+
+  const markUpdatesViewed = useCallback(() => {
+    if (!updates[0]?.created_at) return;
+    const seen = updates[0].created_at;
+    setUpdatesSeenAt(seen);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("leader_updates_seen_at", seen);
+    }
+  }, [updates]);
+
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace("/"); return; }
@@ -1068,8 +1141,9 @@ export default function LeaderDashboard() {
       setUser(user); fetchTeamData(user.id);
       loadProblemStatements();
       loadBettingData(leaderTeam.id);
+      loadUpdates();
     });
-  }, [router, fetchTeamData, loadProblemStatements, loadBettingData]);
+  }, [router, fetchTeamData, loadProblemStatements, loadBettingData, loadUpdates]);
 
   const loadHackathon = useCallback(async () => {
     const { data } = await supabase
@@ -1086,13 +1160,21 @@ export default function LeaderDashboard() {
     loadHackathon();
     const pollId = setInterval(loadHackathon, 15000);
     const bettingPollId = setInterval(() => loadBettingData(), 10000);
+    const updatesPollId = setInterval(loadUpdates, 20000);
     const tickId = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       clearInterval(pollId);
       clearInterval(bettingPollId);
+      clearInterval(updatesPollId);
       clearInterval(tickId);
     };
-  }, [loadHackathon, loadBettingData]);
+  }, [loadHackathon, loadBettingData, loadUpdates]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setUpdatesSeenAt(window.localStorage.getItem("leader_updates_seen_at"));
+    }
+  }, []);
 
   useEffect(() => {
     const snapshot = getHackathonSnapshot(hackathon, now);
@@ -1107,6 +1189,7 @@ export default function LeaderDashboard() {
   }, [hackathon, now]);
 
   async function handleLogout() { await supabase.auth.signOut(); router.replace("/"); }
+  function handleTopRefresh() { window.location.reload(); }
 
   if (!user) return <div className="fixed inset-0 flex items-center justify-center" style={{ background: "#080808" }}><div className="text-white/40 text-sm animate-pulse">Loading…</div></div>;
 
@@ -1116,12 +1199,16 @@ export default function LeaderDashboard() {
     { id: "leaderboard", label: "Leaderboard", icon: <IconTrophy /> },
     { id: "problems", label: "Problems", icon: <IconDoc /> },
     { id: "play", label: "Play", icon: <IconPlay /> },
+    { id: "updates", label: "Updates", icon: <IconBell /> },
     { id: "team", label: "Team", icon: <IconUsers /> },
     { id: "attendance", label: "Attendance", icon: <IconScan /> },
     { id: "settings", label: "Settings", icon: <IconSettings /> },
   ];
 
   const snapshot = getHackathonSnapshot(hackathon, now);
+  const hasUnreadUpdates = Boolean(
+    updates[0]?.created_at && (!updatesSeenAt || new Date(updates[0].created_at).getTime() > new Date(updatesSeenAt).getTime())
+  );
   const headerTimer = snapshot.mode === "live"
     ? `${Math.floor(snapshot.ms / 3600000).toString().padStart(2, "0")}:${Math.floor((snapshot.ms % 3600000) / 60000).toString().padStart(2, "0")}:${Math.floor((snapshot.ms % 60000) / 1000).toString().padStart(2, "0")}`
     : snapshot.mode === "paused"
@@ -1135,14 +1222,19 @@ export default function LeaderDashboard() {
       <aside className={`fixed top-0 left-0 h-full z-30 flex flex-col border-r border-white/8 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`} style={{ width: 240, background: "rgba(10,10,10,0.97)", backdropFilter: "blur(20px)" }}>
         <div className="px-5 py-5 border-b border-white/8">
           <div className="flex items-center gap-3">
-            <div className="relative w-9 h-9 rounded-full overflow-hidden border border-yellow-500/40 shrink-0" style={{ boxShadow: "0 0 10px rgba(212,160,23,0.3)" }}><Image src="/awscc_logo.webp" alt="logo" fill className="object-cover brightness-110" /></div>
+            <div className="relative w-9 h-9 rounded-full overflow-hidden border border-yellow-500/40 shrink-0" style={{ boxShadow: "0 0 10px rgba(212,160,23,0.3)" }}><Image src="/aws-logo.png" alt="logo" fill className="object-cover brightness-110" /></div>
             <div><span className="text-sm font-bold text-white tracking-wider">CLOUD-FLUSH</span><p className="text-[10px] text-white/30">AWS Cloud Club VIT</p></div>
           </div>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map(item => (
-            <button key={item.id} onClick={() => { setSection(item.id); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${section === item.id ? "text-black" : "text-white/50 hover:text-white hover:bg-white/5"}`} style={section === item.id ? { background: "#D4A017" } : {}}>
+            <button key={item.id} onClick={() => {
+              setSection(item.id);
+              if (item.id === "updates") markUpdatesViewed();
+              setSidebarOpen(false);
+            }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${section === item.id ? "text-black" : "text-white/50 hover:text-white hover:bg-white/5"}`} style={section === item.id ? { background: "#D4A017" } : {}}>
               {item.icon}{item.label}
+              {item.id === "updates" && hasUnreadUpdates && <span className="ml-auto h-2 w-2 rounded-full" style={{ background: "#f85149" }} />}
             </button>
           ))}
         </nav>
@@ -1161,17 +1253,73 @@ export default function LeaderDashboard() {
             <button className="lg:hidden p-1.5 rounded-lg text-white/50 hover:text-white transition-colors" onClick={() => setSidebarOpen(true)}><svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg></button>
             <div>
               <h1 className="text-base font-bold text-white capitalize">{section}</h1>
-              <p className="text-[10px] text-white/30 hidden sm:block">{section === "overview" ? "Your hackathon at a glance" : section === "leaderboard" ? "Countdown and team rankings" : section === "problems" ? "Choose and lock your team problem" : section === "play" ? "Betting and decisions by active round" : section === "team" ? "Manage your team members" : section === "attendance" ? "Your attendance QR code" : "Account & security settings"}</p>
+              <p className="text-[10px] text-white/30 hidden sm:block">{section === "overview" ? "Your hackathon at a glance" : section === "leaderboard" ? "Countdown and team rankings" : section === "problems" ? "Choose and lock your team problem" : section === "play" ? "Betting and decisions by active round" : section === "updates" ? "Latest admin announcements" : section === "team" ? "Manage your team members" : section === "attendance" ? "Your attendance QR code" : "Account & security settings"}</p>
             </div>
           </div>
-          {section !== "leaderboard" && (
-            <div className="hidden sm:block">
-              <div className="px-3 py-1.5 rounded-lg border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.12)" }}>
-                <p className="text-[9px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.45)" }}>Timer</p>
-                <p className="text-sm font-bold font-mono" style={{ color: snapshot.mode === "live" ? "#34d399" : "rgba(255,255,255,0.75)" }}>{headerTimer}</p>
-              </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleTopRefresh}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors"
+              style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.75)" }}
+            >
+              <IconRefresh /> Refresh
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowUpdatesPreview((prev) => !prev)}
+                className="relative p-2 rounded-lg border transition-colors"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  borderColor: hasUnreadUpdates ? "rgba(248,81,73,0.65)" : "rgba(255,255,255,0.12)",
+                  color: hasUnreadUpdates ? "#f87171" : "rgba(255,255,255,0.75)",
+                }}
+              >
+                <IconBell />
+                {hasUnreadUpdates && (
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full" style={{ background: "#f85149" }} />
+                )}
+              </button>
+
+              {showUpdatesPreview && (
+                <div className="absolute right-0 mt-2 w-80 rounded-xl border p-3 z-30" style={{ background: "#0f1118", borderColor: "rgba(255,255,255,0.12)", boxShadow: "0 12px 36px rgba(0,0,0,0.35)" }}>
+                  <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Latest Updates</p>
+                  {updates.length === 0 ? (
+                    <p className="text-sm text-white/60">No updates yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {updates.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => { setShowUpdatesPreview(false); setSection("updates"); markUpdatesViewed(); }}
+                          className="w-full text-left rounded-lg p-2 border hover:bg-white/5 transition-colors"
+                          style={{ borderColor: "rgba(255,255,255,0.1)" }}
+                        >
+                          <p className="text-sm font-semibold text-white truncate">{item.title}</p>
+                          <p className="text-xs text-white/55 line-clamp-2 mt-0.5">{item.body}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setShowUpdatesPreview(false); setSection("updates"); markUpdatesViewed(); }}
+                    className="mt-3 text-xs font-semibold hover:underline"
+                    style={{ color: "#58a6ff" }}
+                  >
+                    View all updates
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+
+            {section !== "leaderboard" && (
+              <div className="hidden sm:block">
+                <div className="px-3 py-1.5 rounded-lg border" style={{ background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.12)" }}>
+                  <p className="text-[9px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.45)" }}>Timer</p>
+                  <p className="text-sm font-bold font-mono" style={{ color: snapshot.mode === "live" ? "#34d399" : "rgba(255,255,255,0.75)" }}>{headerTimer}</p>
+                </div>
+              </div>
+            )}
+          </div>
         </header>
         <div className="flex-1 p-5 sm:p-8">
           <div className={`${section === "play" ? "max-w-none" : section === "overview" ? "max-w-6xl" : section === "leaderboard" || section === "problems" ? "max-w-4xl" : "max-w-3xl"} mx-auto lg:mx-0 w-full`}>
@@ -1183,6 +1331,7 @@ export default function LeaderDashboard() {
               await loadBettingData();
             }} />}
             {section === "play" && <PlaySection selectedProblem={selectedProblem} constraints={constraints} enabledRounds={enabledRounds} roundControls={roundControls} activeRound={activeRound} myRoundBet={myRoundBet} myRoundResult={myRoundResult} roundLeaderboardBets={roundLeaderboardBets} teamId={team?.id ?? null} teamPoints={team?.points ?? 0} onRoundAction={async () => { await loadBettingData(); }} />}
+            {section === "updates" && <UpdatesSection updates={updates} />}
             {section === "team" && <TeamSection team={team} members={members} onMemberAdded={() => fetchTeamData(user.id)} />}
             {section === "attendance" && <AttendanceSection user={user} team={team} />}
             {section === "settings" && <SettingsSection user={user} />}

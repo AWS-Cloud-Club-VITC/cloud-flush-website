@@ -75,6 +75,7 @@ export default function AdminLoginPage() {
                   <label className="text-xs uppercase tracking-widest" style={{ color: "#8b949e" }}>Email</label>
                   <input
                     type="email" required value={email}
+                    suppressHydrationWarning
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin@example.com"
                     className="w-full px-3 py-2 rounded-md text-sm outline-none transition-colors"
@@ -86,12 +87,13 @@ export default function AdminLoginPage() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <label className="text-xs uppercase tracking-widest" style={{ color: "#8b949e" }}>Password</label>
-                    <button type="button" onClick={() => setMode("forgot")} className="text-xs hover:underline" style={{ color: ACCENT }}>
+                    <button type="button" suppressHydrationWarning onClick={() => setMode("forgot")} className="text-xs hover:underline" style={{ color: ACCENT }}>
                       Forgot password?
                     </button>
                   </div>
                   <input
                     type="password" required value={password}
+                    suppressHydrationWarning
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="w-full px-3 py-2 rounded-md text-sm outline-none transition-colors"
@@ -103,6 +105,7 @@ export default function AdminLoginPage() {
                 {error && <p className="text-xs" style={{ color: "#f85149" }}>{error}</p>}
                 <button
                   type="submit" disabled={loading}
+                  suppressHydrationWarning
                   className="w-full py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60 transition-opacity"
                   style={{ background: BTN_BG }}
                 >
@@ -137,6 +140,7 @@ export default function AdminLoginPage() {
                   <label className="text-xs uppercase tracking-widest" style={{ color: "#8b949e" }}>Email</label>
                   <input
                     type="email" required value={email}
+                    suppressHydrationWarning
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin@example.com"
                     className="w-full px-3 py-2 rounded-md text-sm outline-none transition-colors"
@@ -148,6 +152,7 @@ export default function AdminLoginPage() {
                 {resetMsg && <p className="text-xs" style={{ color: resetMsg.type === "ok" ? BTN_BG : "#f85149" }}>{resetMsg.text}</p>}
                 <button
                   type="submit" disabled={resetLoading}
+                  suppressHydrationWarning
                   className="w-full py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60 transition-opacity"
                   style={{ background: BTN_BG }}
                 >

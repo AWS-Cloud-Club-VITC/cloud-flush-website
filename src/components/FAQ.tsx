@@ -6,42 +6,32 @@ const faqs = [
   {
     question: "Who can participate?",
     answer:
-      "Cloud-Flush is open to all undergraduate and postgraduate students from any university across India. Whether you're a first-year or a final-year, all skill levels are welcome.",
+      "Any student team (2-4 members) can participate.",
   },
   {
-    question: "Is it online or offline?",
+    question: "Where is it happening?",
     answer:
-      "Cloud-Flush is a hybrid hackathon. The main event takes place on the VIT Chennai campus, but we also have limited remote participation slots for teams from other cities.",
+      "Primary venue is VIT Chennai, with event instructions shared to all selected teams.",
   },
   {
-    question: "What should I build?",
+    question: "What should we build?",
     answer:
-      "You'll receive specific problem statements during the opening ceremony. Projects must leverage at least one AWS service. Think serverless apps, ML pipelines, IoT dashboards, or anything that runs on the cloud.",
+      "A working cloud-based solution aligned to the released problem statement.",
   },
   {
-    question: "Are there prizes?",
+    question: "How does betting work?",
     answer:
-      "Absolutely! The total prize pool is ₹20,000, including cash prizes, AWS credits, swag kits, and exciting opportunities with our sponsor companies.",
+      "Each round has initial bet, decision phase (hold/double/withdraw), then settlement from score + final bet.",
   },
   {
-    question: "Do I need AWS experience?",
+    question: "Do we need AWS experience?",
     answer:
-      "Not at all. We'll host pre-hackathon workshops covering AWS fundamentals — from EC2 and S3 to Lambda and DynamoDB. Plus, mentors will be available throughout the event to help you get started.",
+      "No. Basic familiarity helps, and mentors guide teams during the sprint.",
   },
   {
-    question: "How many members per team?",
+    question: "What do we submit?",
     answer:
-      "Teams can have 2 to 4 members. Solo participation is not allowed — collaboration is key! Don't have a team? Join our Discord to find teammates.",
-  },
-  {
-    question: "What do I need to bring?",
-    answer:
-      "Your laptop, charger, and enthusiasm. We provide the venue, Wi-Fi, meals, snacks, and AWS credits. Bring your A-game and a sleeping bag if you plan to power through the night.",
-  },
-  {
-    question: "Will there be food and accommodation?",
-    answer:
-      "Yes! Meals, snacks, and beverages are covered for all on-site participants throughout the 24-hour event. Resting areas will be available on campus.",
+      "Repository, deployed demo, and final presentation as per round instructions.",
   },
 ];
 
@@ -135,10 +125,10 @@ export default function FAQ() {
             inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
-          FREQUENTLY ASKED QUESTIONS
+          QUICK FAQ
         </h2>
 
-        <div className="max-w-3xl space-y-3 sm:space-y-4">
+        <div className="max-w-3xl mx-auto space-y-3 sm:space-y-4">
           {faqs.map((faq, i) => (
             <div
               key={i}

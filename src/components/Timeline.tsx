@@ -4,46 +4,52 @@ import { useEffect, useRef, useState } from "react";
 
 const events = [
   {
-    time: "March 20, 2025",
+    time: "March 14, 2026",
     title: "Registration Opens",
     description:
-      "Team registrations go live. Form your squad of 2–4 and sign up on the portal.",
+      "Team registrations go live. Form your squad of 2-4 and lock your slot.",
   },
   {
-    time: "April 10, 2025",
+    time: "March 20, 2026",
     title: "Registration Closes",
     description:
-      "Last day to register. Late entries will not be accepted — don't miss out.",
+      "Final deadline for entries and profile verification.",
   },
   {
-    time: "April 15 — 9:00 AM",
-    title: "Hackathon Kickoff",
+    time: "March 21, 2026",
+    title: "Shortlist & Team Confirmation",
     description:
-      "Opening ceremony, problem statement reveal, and AWS credits distribution. Let the hacking begin.",
+      "Selected teams are announced with onboarding instructions and rules.",
   },
   {
-    time: "April 15 — 2:00 PM",
-    title: "Mentor Sessions",
+    time: "March 23, 2026 - 9:00 AM",
+    title: "Opening Ceremony & Problem Reveal",
     description:
-      "One-on-one and group mentoring with AWS architects, industry leaders, and VIT faculty.",
+      "Kickoff, challenge briefing, judging rubric walkthrough, and AWS credit release.",
   },
   {
-    time: "April 15 — 9:00 PM",
-    title: "Mid-Review",
+    time: "March 23, 2026 - 2:00 PM",
+    title: "Mentor Sprint & Betting Window",
     description:
-      "Present your progress to the review panel. Feedback rounds to sharpen your solution.",
+      "Architecture checkpoints begin, and live betting rounds open in the dashboard.",
   },
   {
-    time: "April 16 — 9:00 PM",
+    time: "March 23, 2026 - 9:00 PM",
+    title: "Mid Review",
+    description:
+      "Teams present progress and receive final direction before submission day.",
+  },
+  {
+    time: "March 24, 2026 - 9:00 AM",
     title: "Final Submission",
     description:
-      "Code freeze. Submit your project repo, demo video, and deployment URL.",
+      "Code freeze. Submit repository, live deployment, pitch deck, and demo flow.",
   },
   {
-    time: "April 17 — 11:00 AM",
+    time: "March 24, 2026 - 11:00 AM",
     title: "Results & Awards",
     description:
-      "Grand jury evaluation, winner announcement, and prize distribution ceremony.",
+      "Final jury, winner reveal, and closing ceremony with prize distribution.",
   },
 ];
 

@@ -4,6 +4,7 @@
 drop table if exists public.attendance cascade;
 drop table if exists public.hackathon_config cascade;
 drop table if exists public.registrations cascade;
+drop table if exists public.dashboard_updates cascade;
 drop table if exists public.problem_statements cascade;
 drop table if exists public.domain_constraints cascade;
 drop table if exists public.constraint_round_settings cascade;
@@ -39,6 +40,14 @@ create table public.problem_statements (
   created_at  timestamp with time zone default timezone('utc', now()) not null
 );
 
+create table public.dashboard_updates (
+  id          uuid default gen_random_uuid() primary key,
+  title       text not null,
+  body        text not null,
+  created_by  uuid references auth.users(id) on delete set null,
+  created_at  timestamp with time zone default timezone('utc', now()) not null
+);
+
 create table public.domain_constraints (
   id             uuid default gen_random_uuid() primary key,
   domain         text not null,
@@ -51,13 +60,13 @@ create table public.domain_constraints (
 
 create table public.constraint_round_settings (
   round_no   integer primary key check (round_no between 1 and 5),
-  is_enabled boolean not null default true,
+  is_enabled boolean not null default false,
   updated_by uuid references auth.users(id) on delete set null,
   updated_at timestamp with time zone not null default timezone('utc', now())
 );
 
 insert into public.constraint_round_settings (round_no, is_enabled)
-values (1, true), (2, true), (3, true), (4, true), (5, true)
+values (1, false), (2, false), (3, false), (4, false), (5, false)
 on conflict (round_no) do nothing;
 
 -- STEP 2: Teams
@@ -189,7 +198,7 @@ create table public.round_bets (
   round_no           integer not null check (round_no between 1 and 5),
   team_id            uuid not null references public.teams(id) on delete cascade,
   initial_bet        integer not null check (initial_bet >= 0),
-  second_decision    text check (second_decision in ('hold', 'double', 'withdraw')),
+  second_decision    text check (second_decision in ('hold', 'match', 'double', 'withdraw')),
   final_bet          integer check (final_bet >= 0),
   decision_locked    boolean not null default false,
   placed_by          uuid references auth.users(id) on delete set null,
@@ -235,6 +244,7 @@ create table public.betting_transactions (
 alter table public.teams         enable row level security;
 alter table public.team_members  enable row level security;
 alter table public.problem_statements enable row level security;
+alter table public.dashboard_updates enable row level security;
 alter table public.domain_constraints enable row level security;
 alter table public.constraint_round_settings enable row level security;
 alter table public.core_users    enable row level security;
@@ -378,9 +388,15 @@ declare
   v_ctrl public.betting_round_control%rowtype;
   v_bet public.round_bets%rowtype;
   v_final integer;
+  v_top_initial integer;
+  v_decision text := lower(trim(p_decision));
   v_row public.round_bets;
 begin
-  if p_decision not in ('hold', 'double', 'withdraw') then
+  if v_decision = 'double' then
+    v_decision := 'match';
+  end if;
+
+  if v_decision not in ('hold', 'match', 'withdraw') then
     raise exception 'Invalid decision';
   end if;
 
@@ -418,9 +434,14 @@ begin
     raise exception 'Second decision already submitted';
   end if;
 
-  if p_decision = 'double' then
-    v_final := v_bet.initial_bet * 2;
-  elsif p_decision = 'withdraw' then
+  if v_decision = 'match' then
+    select coalesce(max(rb.initial_bet), v_bet.initial_bet)
+      into v_top_initial
+    from public.round_bets rb
+    where rb.round_no = p_round_no;
+
+    v_final := v_top_initial;
+  elsif v_decision = 'withdraw' then
     v_final := 0;
   else
     v_final := v_bet.initial_bet;
@@ -436,7 +457,7 @@ begin
 
   update public.round_bets
   set
-    second_decision = p_decision,
+    second_decision = v_decision,
     final_bet = v_final,
     decision_locked = true,
     decision_at = timezone('utc', now())
@@ -736,6 +757,14 @@ create policy "Authenticated can view problem statements"
   using (true);
 create policy "Admin can manage problem statements"
   on public.problem_statements for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create policy "Authenticated can view dashboard updates"
+  on public.dashboard_updates for select to authenticated
+  using (true);
+create policy "Admin can manage dashboard updates"
+  on public.dashboard_updates for all to authenticated
   using (public.is_admin())
   with check (public.is_admin());
 

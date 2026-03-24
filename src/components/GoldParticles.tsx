@@ -1,6 +1,13 @@
 "use client";
 
+import { useId } from "react";
+
 function SoftCloud({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  const baseId = useId().replace(/:/g, "");
+  const bodyGradientId = `${baseId}-body`;
+  const shadowGradientId = `${baseId}-shadow`;
+  const rimGradientId = `${baseId}-rim`;
+
   return (
     <svg
       viewBox="0 0 520 220"
@@ -9,12 +16,32 @@ function SoftCloud({ className, style }: { className?: string; style?: React.CSS
       className={className}
       style={style}
     >
-      <ellipse cx="150" cy="134" rx="78" ry="52" fill="#D6D6D6" />
-      <ellipse cx="232" cy="118" rx="96" ry="66" fill="#E2E2E2" />
-      <ellipse cx="312" cy="134" rx="84" ry="56" fill="#DCDCDC" />
-      <ellipse cx="212" cy="156" rx="172" ry="52" fill="#CFCFCF" />
-      <ellipse cx="178" cy="168" rx="58" ry="20" fill="#AFAFAF" opacity="0.28" />
-      <ellipse cx="268" cy="170" rx="64" ry="21" fill="#9F9F9F" opacity="0.24" />
+      <defs>
+        <radialGradient id={bodyGradientId} cx="52%" cy="34%" r="72%">
+          <stop offset="0%" stopColor="#EEF4FF" />
+          <stop offset="42%" stopColor="#D9E4FA" />
+          <stop offset="100%" stopColor="#9CADCD" />
+        </radialGradient>
+        <radialGradient id={shadowGradientId} cx="50%" cy="100%" r="68%">
+          <stop offset="0%" stopColor="#5F7396" stopOpacity="0.48" />
+          <stop offset="100%" stopColor="#1A2640" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={rimGradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.5" />
+          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      <ellipse cx="150" cy="134" rx="78" ry="52" fill={`url(#${bodyGradientId})`} />
+      <ellipse cx="232" cy="116" rx="98" ry="68" fill={`url(#${bodyGradientId})`} />
+      <ellipse cx="318" cy="134" rx="88" ry="58" fill={`url(#${bodyGradientId})`} />
+      <ellipse cx="214" cy="158" rx="178" ry="54" fill={`url(#${bodyGradientId})`} />
+
+      <ellipse cx="214" cy="172" rx="190" ry="34" fill={`url(#${shadowGradientId})`} />
+
+      <ellipse cx="172" cy="102" rx="58" ry="19" fill={`url(#${rimGradientId})`} opacity="0.42" />
+      <ellipse cx="248" cy="92" rx="65" ry="20" fill={`url(#${rimGradientId})`} opacity="0.45" />
+      <ellipse cx="316" cy="108" rx="55" ry="17" fill={`url(#${rimGradientId})`} opacity="0.34" />
     </svg>
   );
 }
@@ -85,21 +112,46 @@ export default function GoldParticles() {
       {stars}
       {sparkles}
 
-      <SoftCloud
-        className="absolute top-[8%] left-0 w-72 sm:w-md"
-        style={{ animation: "cloud-drift 60s linear infinite", opacity: 0.38 }}
+      <div
+        className="absolute top-[7%] left-0 w-72 sm:w-108"
+        style={{ animation: "cloud-drift 66s linear infinite", opacity: 0.46 }}
+      >
+        <SoftCloud className="w-full" style={{ animation: "float 16s ease-in-out infinite" }} />
+      </div>
+
+      <div
+        className="absolute top-[30%] left-0 w-60 sm:w-96"
+        style={{ animation: "cloud-drift-reverse 82s linear infinite 7s", opacity: 0.32 }}
+      >
+        <SoftCloud className="w-full" style={{ animation: "float 20s ease-in-out infinite 2s" }} />
+      </div>
+
+      <div
+        className="absolute top-[56%] left-0 w-80 sm:w-124"
+        style={{ animation: "cloud-drift 94s linear infinite 12s", opacity: 0.36 }}
+      >
+        <SoftCloud className="w-full" style={{ animation: "float 18s ease-in-out infinite 1s" }} />
+      </div>
+
+      <div
+        className="absolute bottom-[8%] left-0 w-56 sm:w-88"
+        style={{ animation: "cloud-drift-reverse 88s linear infinite 20s", opacity: 0.28 }}
+      >
+        <SoftCloud className="w-full" style={{ animation: "float 22s ease-in-out infinite 3s" }} />
+      </div>
+
+      <div
+        className="absolute top-[15%] -left-48 h-72 w-152 rounded-full blur-3xl"
+        style={{
+          background: "radial-gradient(ellipse at center, rgba(128,173,255,0.16) 0%, rgba(58,101,182,0.08) 44%, transparent 72%)",
+        }}
       />
-      <SoftCloud
-        className="absolute top-[34%] left-0 w-64 sm:w-88"
-        style={{ animation: "cloud-drift-reverse 74s linear infinite 8s", opacity: 0.3 }}
-      />
-      <SoftCloud
-        className="absolute top-[60%] left-0 w-80 sm:w-104"
-        style={{ animation: "cloud-drift 92s linear infinite 14s", opacity: 0.34 }}
-      />
-      <SoftCloud
-        className="absolute bottom-[8%] left-0 w-60 sm:w-80"
-        style={{ animation: "cloud-drift-reverse 84s linear infinite 22s", opacity: 0.26 }}
+
+      <div
+        className="absolute top-[45%] -right-40 h-64 w-lg rounded-full blur-3xl"
+        style={{
+          background: "radial-gradient(ellipse at center, rgba(132,180,255,0.15) 0%, rgba(55,96,173,0.07) 45%, transparent 74%)",
+        }}
       />
 
       {/* Subtle cool glow in hero area */}
