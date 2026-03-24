@@ -42,3 +42,8 @@ next-env.d.ts
 
 # agents
 .agents/
+
+# supabase (keep email template tracked)
+supabase/**
+!supabase/email-templates/
+!supabase/email-templates/reset-password.html
