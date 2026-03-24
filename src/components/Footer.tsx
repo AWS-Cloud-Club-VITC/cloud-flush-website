@@ -16,7 +16,7 @@ function InstagramIcon() {
 function MeetupIcon() {
   return (
     <Image
-      src="/meetup_logo.png"
+      src="/home-page/meetup.png"
       alt="Meetup"
       width={28}
       height={28}
@@ -28,6 +28,12 @@ function MeetupIcon() {
 export default function Footer() {
   const footerRef = useRef<HTMLElement>(null);
   const [inView, setInView] = useState(false);
+
+  const staffLinks = [
+    { href: "/core", label: "Core Login" },
+    { href: "/admin", label: "Admin Login" },
+    { href: "/judge", label: "Judge Login" },
+  ];
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -57,11 +63,11 @@ export default function Footer() {
     <footer
       ref={footerRef}
       id="contact"
-      className="relative py-16 sm:py-24 px-4 bg-bg-surface/50 border-t border-gold/10"
+      className="relative py-16 sm:py-24 px-4 border-t border-gold/10"
     >
-      <div className="max-w-4xl mx-auto text-center">
+      <div className="max-w-4xl mx-auto text-center relative">
         <h3
-          className={`font-[family-name:var(--font-cinzel)] text-xl sm:text-2xl lg:text-3xl font-bold text-text-primary mb-8 transition-all duration-700 ${
+          className={`font-(family-name:--font-space-grotesk) text-xl sm:text-2xl lg:text-3xl font-bold text-text-primary mb-8 transition-all duration-700 ${
             inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
@@ -83,7 +89,7 @@ export default function Footer() {
               rel="noopener noreferrer"
               className="social-icon group flex flex-col items-center gap-3"
             >
-              <div className="relative p-4 rounded-2xl bg-bg-surface border border-gold/20 group-hover:border-gold/60 group-hover:bg-gold/5 transition-all duration-300">
+              <div className="relative p-4 rounded-2xl bg-transparent border border-gold/20 group-hover:border-gold/60 group-hover:bg-gold/5 transition-all duration-300">
                 <div className="text-gold/70 group-hover:text-gold transition-colors duration-300">
                   {link.icon}
                 </div>
@@ -93,44 +99,46 @@ export default function Footer() {
                   }}
                 />
               </div>
-              <span className="font-[family-name:var(--font-syne)] text-xs sm:text-sm text-text-muted group-hover:text-gold transition-colors duration-300 tracking-wider">
+              <span className="font-(family-name:--font-space-grotesk) text-xs sm:text-sm text-text-muted group-hover:text-gold transition-colors duration-300 tracking-wider">
                 {link.name}
               </span>
             </a>
           ))}
         </div>
 
-        <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-gold/30 to-transparent mx-auto mb-6" />
+        <div className="w-24 h-px bg-linear-to-r from-transparent via-gold/30 to-transparent mx-auto mb-6" />
 
         <p
-          className={`font-[family-name:var(--font-syne)] text-xs sm:text-sm text-text-muted/60 transition-all duration-700 delay-400 ${
+          className={`font-(family-name:--font-space-grotesk) text-xs sm:text-sm text-text-muted/60 transition-all duration-700 delay-400 ${
             inView ? "opacity-100" : "opacity-0"
           }`}
         >
           © 2026 AWS Cloud Club VIT Chennai. All rights reserved.
         </p>
 
-        {/* Staff portal links */}
-        <div
-          className={`flex items-center justify-center gap-3 mt-5 transition-all duration-700 delay-500 ${
-            inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
-        >
-          {[
-            { href: "/core",  label: "Core Login",  color: "#238636" },
-            { href: "/admin", label: "Admin Login", color: "#58a6ff" },
-            { href: "/judge", label: "Judge Login", color: "#9e6a03" },
-          ].map(({ href, label, color }) => (
-            <a
-              key={href}
-              href={href}
-              className="px-3 py-1 rounded-full text-[11px] font-mono tracking-wider border transition-all duration-200 hover:opacity-90"
-              style={{ borderColor: color, color, background: `${color}14` }}
-            >
+        <div className="sm:hidden flex items-center justify-center gap-4 mt-5 text-xs">
+          {staffLinks.map(({ href, label }) => (
+            <a key={href} href={href} className="text-white/85 hover:text-white transition-colors">
               {label}
             </a>
           ))}
         </div>
+      </div>
+
+      <div
+        className={`hidden sm:flex items-center gap-4 absolute right-6 bottom-6 transition-all duration-700 delay-500 ${
+          inView ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+        }`}
+      >
+        {staffLinks.map(({ href, label }) => (
+          <a
+            key={href}
+            href={href}
+            className="text-xs text-white/85 hover:text-white transition-colors"
+          >
+            {label}
+          </a>
+        ))}
       </div>
     </footer>
   );

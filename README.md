@@ -1,30 +1,20 @@
 # Cloud-Flush
 
-Official hackathon website for Cloud-Flush by AWS Cloud Club VIT Chennai.
+Official website and dashboard for Cloud-Flush by AWS Cloud Club VIT Chennai.
 
-## Setup
+## Code Usage Notice
 
-**Prerequisites:** Node.js 18+
+This source code is private to the Cloud-Flush project.
+Do not copy, reuse, redistribute, or republish any part of this codebase without explicit written permission from AWS Cloud Club VIT Chennai.
+
+## Quick Setup
+
+Prerequisite: Node.js 18+
 
 ```bash
-# Clone the repo
-git clone https://github.com/AWS-Cloud-Club-VITC/cloud-flush-website.git
-cd cloud-flush
-
-# Install dependencies
 npm install
-
-# Start dev server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open http://localhost:3000
 
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm start` | Start production server |
-| `npm run lint` | Run ESLint |

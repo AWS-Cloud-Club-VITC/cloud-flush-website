@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { supabase } from "@/lib/supabase";
+import { coordinatorSupabase as supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 const QRScannerWidget = dynamic(() => import("@/components/QRScannerWidget"), {
@@ -87,7 +87,7 @@ function ScanBadge({ result }: { result: ScanResult }) {
 // ============================================================
 // ATTENDANCE SECTION
 // ============================================================
-function AttendanceSection({ user, sessions }: { user: User; sessions: Session[] }) {
+function AttendanceSection({ user, sessions, onOpenSettings }: { user: User; sessions: Session[]; onOpenSettings: () => void }) {
   const enabledSessions = useMemo(
     () => sessions.filter(s => s.is_enabled).sort((a, b) => a.slot_order - b.slot_order),
     [sessions]
@@ -144,9 +144,9 @@ function AttendanceSection({ user, sessions }: { user: User; sessions: Session[]
 
   async function handleExport(format: "xlsx" | "csv") {
     const XLSX = await import("xlsx");
-    const headers = ["Name", "Reg No", "Email", "Team", ...enabledSessions.map(s => s.name)];
+    const headers = ["Name", "Reg No", "Email ID", ...enabledSessions.map(s => s.name)];
     const rows = registrations.map(r => [
-      r.name, r.reg_no, r.email, r.team_name,
+      r.name, r.reg_no, r.email,
       ...enabledSessions.map(s => attendance.some(a => a.reg_no === r.reg_no && a.session_id === s.id) ? "Present" : "Absent"),
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -164,7 +164,15 @@ function AttendanceSection({ user, sessions }: { user: User; sessions: Session[]
       {/* Session tabs */}
       {enabledSessions.length === 0 ? (
         <div className="px-4 py-3 rounded-lg text-sm" style={{ background: "#21262d", color: "#8b949e" }}>
-          No sessions enabled. Go to <strong className="text-white">Settings</strong> to enable sessions first.
+          No sessions enabled. Go to {" "}
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="font-semibold text-white underline underline-offset-2"
+          >
+            Settings
+          </button>{" "}
+          to enable sessions first.
         </div>
       ) : (
         <div className="flex gap-2 flex-wrap items-center">
@@ -242,7 +250,7 @@ function AttendanceSection({ user, sessions }: { user: User; sessions: Session[]
             <table className="w-full text-sm" style={{ minWidth: `${400 + enabledSessions.length * 110}px` }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #30363d" }}>
-                  {["#", "Name", "Reg No", "Team", ...enabledSessions.map(s => s.name)].map(h => (
+                  {["#", "Name", "Reg No", "Email ID", ...enabledSessions.map(s => s.name)].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap"
                       style={{ color: "#8b949e" }}>{h}</th>
                   ))}
@@ -254,7 +262,7 @@ function AttendanceSection({ user, sessions }: { user: User; sessions: Session[]
                     <td className="px-4 py-2.5 text-xs" style={{ color: "#484f58" }}>{i + 1}</td>
                     <td className="px-4 py-2.5 font-medium text-white whitespace-nowrap">{r.name}</td>
                     <td className="px-4 py-2.5 font-mono text-xs whitespace-nowrap" style={{ color: "#58a6ff" }}>{r.reg_no}</td>
-                    <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: "#8b949e" }}>{r.team_name || "—"}</td>
+                    <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: "#8b949e" }}>{r.email || "—"}</td>
                     {enabledSessions.map(s => {
                       const present = attendance.some(a => a.reg_no === r.reg_no && a.session_id === s.id);
                       return (
@@ -488,9 +496,9 @@ function SettingsSection({ sessions, onSessionsUpdated }: { sessions: Session[];
               style={{ borderBottom: i < sessions.length - 1 ? "1px solid #21262d" : "none" }}>
               {/* Toggle switch */}
               <button onClick={() => handleToggle(s)} disabled={saving}
-                className="relative flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none"
+                className="relative shrink-0 rounded-full transition-colors duration-200 focus:outline-none"
                 style={{ width: "40px", height: "22px", background: s.is_enabled ? "#238636" : "#30363d" }}>
-                <span className="absolute top-[2px] rounded-full bg-white transition-all duration-200"
+                <span className="absolute top-0.5 rounded-full bg-white transition-all duration-200"
                   style={{ width: "18px", height: "18px", left: s.is_enabled ? "20px" : "2px" }} />
               </button>
 
@@ -553,7 +561,7 @@ function SettingsSection({ sessions, onSessionsUpdated }: { sessions: Session[];
 }
 
 // ============================================================
-// CORE DASHBOARD
+// COORDINATOR DASHBOARD
 // ============================================================
 export default function CoreDashboard() {
   const router = useRouter();
@@ -570,14 +578,16 @@ export default function CoreDashboard() {
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { router.replace("/core"); return; }
-      const { data: core } = await supabase.from("core_users").select("id").maybeSingle();
-      if (!core) { await supabase.auth.signOut(); router.replace("/core"); return; }
+      if (!user) { router.replace("/coordinator"); return; }
+      const { data: core } = await supabase.from("core_users").select("id").eq("user_id", user.id).maybeSingle();
+      if (!core) { await supabase.auth.signOut(); router.replace("/coordinator"); return; }
       setUser(user);
       await loadSessions();
       setLoading(false);
     });
   }, [router, loadSessions]);
+
+  function handleTopRefresh() { window.location.reload(); }
 
   if (loading) {
     return (
@@ -612,7 +622,7 @@ export default function CoreDashboard() {
         style={{ width: 220, background: "#161b22", borderRight: "1px solid #30363d" }}>
         <div className="px-5 py-4" style={{ borderBottom: "1px solid #30363d" }}>
           <span className="font-bold tracking-widest text-white text-sm" style={{ fontFamily: "monospace" }}>CLOUD-FLUSH</span>
-          <p className="text-xs mt-0.5" style={{ color: "#8b949e" }}>Core Team</p>
+          <p className="text-xs mt-0.5" style={{ color: "#8b949e" }}>Coordinator</p>
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {navItems.map(item => (
@@ -628,9 +638,9 @@ export default function CoreDashboard() {
         <div className="p-3 space-y-2" style={{ borderTop: "1px solid #30363d" }}>
           <div className="px-3 py-2 rounded-lg" style={{ background: "#21262d" }}>
             <p className="text-sm text-white truncate">{user?.email}</p>
-            <span className="text-xs" style={{ color: "#8b949e" }}>Core Team</span>
+            <span className="text-xs" style={{ color: "#8b949e" }}>Coordinator</span>
           </div>
-          <button onClick={async () => { await supabase.auth.signOut(); router.replace("/core"); }}
+          <button onClick={async () => { await supabase.auth.signOut(); router.replace("/coordinator"); }}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
             style={{ color: "#8b949e" }}
             onMouseEnter={e => (e.currentTarget.style.color = "#f85149")}
@@ -642,19 +652,28 @@ export default function CoreDashboard() {
 
       {/* Main */}
       <main className="flex-1 flex flex-col min-h-screen" style={{ marginLeft: 0 }}>
-        <header className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3"
+        <header className="sticky top-0 z-10 px-4 py-3 flex items-center justify-between gap-3"
           style={{ background: "#161b22", borderBottom: "1px solid #30363d" }}>
-          <button className="lg:hidden p-1.5 rounded-lg" onClick={() => setSidebarOpen(true)}
-            style={{ color: "#8b949e" }}>
-            <IconMenu />
-          </button>
-          <div>
-            <h1 className="font-semibold text-white capitalize">{nav}</h1>
-            <p className="text-xs hidden sm:block" style={{ color: "#8b949e" }}>{desc[nav]}</p>
+          <div className="flex items-center gap-3">
+            <button className="lg:hidden p-1.5 rounded-lg" onClick={() => setSidebarOpen(true)}
+              style={{ color: "#8b949e" }}>
+              <IconMenu />
+            </button>
+            <div>
+              <h1 className="font-semibold text-white capitalize">{nav}</h1>
+              <p className="text-xs hidden sm:block" style={{ color: "#8b949e" }}>{desc[nav]}</p>
+            </div>
           </div>
+          <button
+            onClick={handleTopRefresh}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs"
+            style={{ background: "#21262d", color: "#8b949e", border: "1px solid #30363d" }}
+          >
+            <IconRefresh /> Refresh
+          </button>
         </header>
         <div className="flex-1 p-4 sm:p-6">
-          {nav === "attendance" && user && <AttendanceSection user={user} sessions={sessions} />}
+          {nav === "attendance" && user && <AttendanceSection user={user} sessions={sessions} onOpenSettings={() => setNav("settings")} />}
           {nav === "database" && <DatabaseSection />}
           {nav === "settings" && <SettingsSection sessions={sessions} onSessionsUpdated={loadSessions} />}
         </div>

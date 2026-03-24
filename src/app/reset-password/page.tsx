@@ -29,7 +29,7 @@ export default function ResetPasswordPage() {
     setLoading(false);
     if (error) { setMsg({ type: "err", text: error.message }); return; }
     setMsg({ type: "ok", text: "Password updated! Redirecting to login…" });
-    setTimeout(() => router.replace("/core"), 2000);
+    setTimeout(() => router.replace("/coordinator"), 2000);
   }
 
   const inputStyle = { background: "#0d1117", border: "1px solid #30363d", color: "#f0f6fc" };
@@ -50,7 +50,7 @@ export default function ResetPasswordPage() {
               <p className="text-sm animate-pulse" style={{ color: "#8b949e" }}>Verifying reset link…</p>
               <p className="text-xs" style={{ color: "#30363d" }}>
                 If nothing happens, the link may have expired.{" "}
-                <a href="/core" className="hover:underline" style={{ color: "#58a6ff" }}>Go back</a>
+                <a href="/coordinator" className="hover:underline" style={{ color: "#58a6ff" }}>Go back</a>
               </p>
             </div>
           ) : (

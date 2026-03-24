@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { judgeSupabase as supabase } from "@/lib/supabase";
 
 const ACCENT = "#d29922";
 const BTN_BG = "#9e6a03";
@@ -25,7 +25,10 @@ export default function JudgeLoginPage() {
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
-      const { data: check } = await supabase.from("judge_users").select("id").maybeSingle();
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) throw new Error("Unable to validate account.");
+      const { data: check } = await supabase.from("judge_users").select("id").eq("user_id", userId).maybeSingle();
       if (!check) {
         await supabase.auth.signOut();
         throw new Error("Access denied. You are not a registered judge.");
@@ -158,7 +161,7 @@ export default function JudgeLoginPage() {
         </div>
 
         <p className="text-center mt-4 text-xs">
-          <a href="/core" className="hover:underline" style={{ color: "#8b949e" }}>Core Login</a>
+          <a href="/coordinator" className="hover:underline" style={{ color: "#8b949e" }}>Coordinator Login</a>
           {" · "}
           <a href="/admin" className="hover:underline" style={{ color: "#8b949e" }}>Admin Login</a>
         </p>

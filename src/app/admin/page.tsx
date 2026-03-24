@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { adminSupabase as supabase } from "@/lib/supabase";
 
 const ACCENT = "#58a6ff";
 const BTN_BG = "#1f6feb";
@@ -25,7 +25,8 @@ export default function AdminLoginPage() {
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
-      const { data: check } = await supabase.from("admin_users").select("id").maybeSingle();
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: check } = await supabase.from("admin_users").select("id").eq("user_id", user!.id).maybeSingle();
       if (!check) {
         await supabase.auth.signOut();
         throw new Error("Access denied. You are not an admin.");
@@ -74,6 +75,7 @@ export default function AdminLoginPage() {
                   <label className="text-xs uppercase tracking-widest" style={{ color: "#8b949e" }}>Email</label>
                   <input
                     type="email" required value={email}
+                    suppressHydrationWarning
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin@example.com"
                     className="w-full px-3 py-2 rounded-md text-sm outline-none transition-colors"
@@ -85,12 +87,13 @@ export default function AdminLoginPage() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <label className="text-xs uppercase tracking-widest" style={{ color: "#8b949e" }}>Password</label>
-                    <button type="button" onClick={() => setMode("forgot")} className="text-xs hover:underline" style={{ color: ACCENT }}>
+                    <button type="button" suppressHydrationWarning onClick={() => setMode("forgot")} className="text-xs hover:underline" style={{ color: ACCENT }}>
                       Forgot password?
                     </button>
                   </div>
                   <input
                     type="password" required value={password}
+                    suppressHydrationWarning
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="w-full px-3 py-2 rounded-md text-sm outline-none transition-colors"
@@ -102,6 +105,7 @@ export default function AdminLoginPage() {
                 {error && <p className="text-xs" style={{ color: "#f85149" }}>{error}</p>}
                 <button
                   type="submit" disabled={loading}
+                  suppressHydrationWarning
                   className="w-full py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60 transition-opacity"
                   style={{ background: BTN_BG }}
                 >
@@ -136,6 +140,7 @@ export default function AdminLoginPage() {
                   <label className="text-xs uppercase tracking-widest" style={{ color: "#8b949e" }}>Email</label>
                   <input
                     type="email" required value={email}
+                    suppressHydrationWarning
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin@example.com"
                     className="w-full px-3 py-2 rounded-md text-sm outline-none transition-colors"
@@ -147,6 +152,7 @@ export default function AdminLoginPage() {
                 {resetMsg && <p className="text-xs" style={{ color: resetMsg.type === "ok" ? BTN_BG : "#f85149" }}>{resetMsg.text}</p>}
                 <button
                   type="submit" disabled={resetLoading}
+                  suppressHydrationWarning
                   className="w-full py-2 rounded-md text-sm font-semibold text-white disabled:opacity-60 transition-opacity"
                   style={{ background: BTN_BG }}
                 >
@@ -158,7 +164,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="text-center mt-4 text-xs">
-          <a href="/core" className="hover:underline" style={{ color: "#8b949e" }}>Core Login</a>
+          <a href="/coordinator" className="hover:underline" style={{ color: "#8b949e" }}>Coordinator Login</a>
           {" · "}
           <a href="/judge" className="hover:underline" style={{ color: "#8b949e" }}>Judge Login</a>
         </p>
